@@ -317,8 +317,8 @@ def map_record_to_lead(record, leadherkunft, import_id):
         if value and str(value).strip():
             lead[f"custom.{CF[cf_key]}"] = str(value).strip()
 
-    branche = f.get("BRANCHE")
-    _set("Branche", f"Franchise - {branche}" if branche else None)
+    branche = (f.get("BRANCHE") or "").strip()
+    _set("Branche", f"Franchise - {branche}" if branche else "Franchise")
     _set("Leadherkunft", leadherkunft)
     _set("Import ID", import_id)
     _set("Lead Datensatz ID", leadherkunft)
