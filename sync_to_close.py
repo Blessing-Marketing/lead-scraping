@@ -123,14 +123,17 @@ def fetch_airtable_records():
     return all_records
 
 
-def update_airtable_close_status(record_id, status="done"):
-    """'Close Status' in Airtable nach erfolgreichem Import setzen."""
+def update_airtable_after_import(record_id, close_lead_id):
+    """'Close Status' und 'Close Lead ID' in Airtable nach Import setzen."""
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_ID}/{record_id}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {"fields": {"Close Status": status}}
+    payload = {"fields": {
+        "Close Status": "done",
+        "Close Lead ID": close_lead_id,
+    }}
     resp = requests.patch(url, headers=headers, json=payload)
     resp.raise_for_status()
 
@@ -422,8 +425,8 @@ def main():
             lead_id = import_single_record(close, record, args.leadherkunft, args.import_id)
 
             if not args.no_update_airtable:
-                update_airtable_close_status(record["id"], "done")
-                log.info(f"  Airtable Status → done")
+                update_airtable_after_import(record["id"], lead_id)
+                log.info(f"  Airtable Status → done, Close Lead ID → {lead_id}")
 
             created += 1
             time.sleep(0.25)
