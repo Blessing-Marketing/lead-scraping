@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$INPUT\" | grep -qiE \"(DELETE|delete|\\.delete\\(|method.*DELETE).*(close\\.com|airtable\\.com|api\\.close|api\\.airtable)\" || echo \"$INPUT\" | grep -qiE \"(close\\.com|airtable\\.com|api\\.close|api\\.airtable).*(DELETE|delete|\\.delete\\(|method.*DELETE)\"; then echo \"BLOCKED: DELETE-Requests an Close.com oder Airtable sind verboten. Siehe CLAUDE.md.\" >&2; exit 2; fi'",
+            "timeout": 5,
+            "statusMessage": "Prüfe auf verbotene DELETE-Requests..."
+          }
+        ]
+      }
+    ]
+  }
+}
