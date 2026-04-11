@@ -23,6 +23,21 @@ Dieses Projekt arbeitet mit API Keys, die Admin-Zugriff auf **Close.com** und **
 2. Nutze `--dry-run` wo möglich, bevor echte Änderungen gemacht werden
 3. Bei Bulk-Operationen: Erst eine kleine Stichprobe, dann den Rest
 
+## Projekt-Architektur
+
+### Impressum-Enrichment (Hauptprozess)
+
+Der Skill `/scrape-impressum` ist der zentrale Workflow:
+- **Playwright MCP** navigiert zu Webseiten und findet Impressum-Seiten
+- **Claude AI** analysiert den Seiteninhalt direkt im Chat und extrahiert Daten
+- **airtable_helpers.py** liest/schreibt Airtable-Records (mit Sicherheitslogik)
+
+Playwright darf nur für öffentliche Webseiten genutzt werden — nie für Logins oder Admin-Panels.
+
+### Close.com-Sync (separater Schritt)
+
+`sync_to_close.py` importiert angereicherte Leads nach Close CRM — wird separat ausgeführt.
+
 ## API-Konfiguration
 
 - Close.com API Key: `close_api_key` in `.env`
