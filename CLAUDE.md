@@ -25,11 +25,23 @@ Dieses Projekt arbeitet mit API Keys, die Admin-Zugriff auf **Close.com** und **
 
 ## Projekt-Architektur
 
-### Impressum-Enrichment (Hauptprozess)
+### Multi-Step-Pipeline
 
-Der Skill `/scrape-impressum` ist der zentrale Workflow:
-- **Playwright MCP** navigiert zu Webseiten und findet Impressum-Seiten
-- **Claude AI** analysiert den Seiteninhalt direkt im Chat und extrahiert Daten
+Records durchlaufen mehrere Schritte, jeder mit eigenem Status-Feld:
+
+| Schritt | Skill | Status-Feld |
+|---------|-------|-------------|
+| 1. Validierung | `/verify-franchise` | `Schritt 1: Validierung` |
+| 2. Impressum | `/scrape-impressum` | `Schritt 2: Impressum` |
+
+Status-Werte: leer (offen) → "In Bearbeitung" → "Erfolgreich" / "Mit Problemen"
+
+### Tools & Infrastruktur
+
+- **WebSearch** für Google-Recherche (primär, kein Playwright für Google — wird geblockt)
+- **Apify Google SERP Scraper** als Fallback wenn WebSearch fehlschlägt
+- **Playwright MCP** navigiert zu konkreten Webseiten und liest Seiteninhalte
+- **Claude AI** analysiert Inhalte direkt im Chat
 - **airtable_helpers.py** liest/schreibt Airtable-Records (mit Sicherheitslogik)
 
 Playwright darf nur für öffentliche Webseiten genutzt werden — nie für Logins oder Admin-Panels.
@@ -42,4 +54,5 @@ Playwright darf nur für öffentliche Webseiten genutzt werden — nie für Logi
 
 - Close.com API Key: `close_api_key` in `.env`
 - Airtable API Key: `airtable_api_key` in `.env`
-- Beide Keys haben **Admin-Zugriff** – entsprechend vorsichtig behandeln
+- Apify API Key: `apify_api_key` in `.env` (Fallback für Google-Suche)
+- Close.com und Airtable Keys haben **Admin-Zugriff** – entsprechend vorsichtig behandeln

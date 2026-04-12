@@ -1,6 +1,6 @@
 # lead-scraping
 
-Franchise-Lead-Enrichment: Impressum-Daten von Webseiten extrahieren und in Airtable anreichern.
+Franchise-Lead-Enrichment: Daten von Franchise-Webseiten recherchieren und in Airtable anreichern.
 
 ## Setup
 
@@ -17,38 +17,63 @@ Dependencies installieren:
 pip install -r requirements.txt
 ```
 
-## Workflow
+Airtable-Felder anlegen (einmalig):
 
-### 1. Impressum-Enrichment (interaktiv via Claude Code)
-
-Der Skill `/scrape-impressum` wird direkt im Claude Code Chat genutzt:
-
-```
-/scrape-impressum https://www.example.com       # Einzelne URL
-/scrape-impressum recXXXXXXXXXXXXXX             # Einzelner Airtable-Record
-/scrape-impressum batch 10                       # 10 offene Records abarbeiten
+```bash
+python airtable_helpers.py setup-fields
 ```
 
-**Ablauf pro Record:**
-1. Playwright MCP navigiert zur Website und findet die Impressum-Seite
-2. Claude analysiert den Seiteninhalt und extrahiert E-Mail, Telefon, Geschäftsführer, Adresse
-3. Ergebnisse werden angezeigt und nach Bestätigung in Airtable geschrieben
+## Pipeline
 
-### 2. Close.com-Sync (separater Schritt)
+Records durchlaufen mehrere Schritte, jeder mit eigenem Status-Tracking in Airtable.
 
-Importiert angereicherte Leads aus Airtable nach Close CRM:
+### Schritt 1: Franchise-Validierung
+
+```
+/verify-franchise recXXXXXXXXXXXXXX      # Einzelner Record
+/verify-franchise batch 10                # 10 offene Records
+```
+
+Prüft per Google-Recherche:
+- Ist es ein echtes Franchise-System? (0-100% + Begründung)
+- Stimmt die Website-URL?
+- Wie heißt das Unternehmen offiziell?
+
+### Schritt 2: Impressum-Enrichment
+
+```
+/scrape-impressum https://www.example.com  # Einzelne URL
+/scrape-impressum recXXXXXXXXXXXXXX       # Einzelner Record
+/scrape-impressum batch 10                 # 10 offene Records
+```
+
+Extrahiert per Playwright MCP + Claude AI:
+- E-Mail, Telefon, Geschäftsführer, Adresse
+
+### Close.com-Sync (separat)
 
 ```bash
 python sync_to_close.py --dry-run    # Testlauf
 python sync_to_close.py              # Import starten
 ```
 
+## Airtable-Helpers
+
+```bash
+python airtable_helpers.py setup-fields       # Felder anlegen
+python airtable_helpers.py step1 [limit]      # Records für Schritt 1
+python airtable_helpers.py step2 [limit]      # Records für Schritt 2
+python airtable_helpers.py list [limit]       # Offene Impressum-Records (Legacy)
+python airtable_helpers.py get <record_id>    # Einzelnen Record laden
+```
+
 ## Dateien
 
 | Datei | Beschreibung |
 |-------|-------------|
-| `airtable_helpers.py` | Airtable API-Client (Lesen, Schreiben, Sicherheitslogik) |
+| `airtable_helpers.py` | Airtable API-Client (Multi-Step, Meta-API, Sicherheitslogik) |
 | `sync_to_close.py` | Airtable → Close.com Lead-Import |
 | `test_create_lead.py` | Test-Lead in Close erstellen |
-| `.claude/skills/scrape-impressum/` | Skill-Definition für den Enrichment-Workflow |
+| `.claude/skills/verify-franchise/` | Schritt 1: Franchise-Validierung |
+| `.claude/skills/scrape-impressum/` | Schritt 2: Impressum-Enrichment |
 | `playwright-mcp.config.json` | Playwright-Browser-Konfiguration |

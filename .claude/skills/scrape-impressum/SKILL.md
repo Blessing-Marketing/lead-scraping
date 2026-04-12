@@ -5,11 +5,13 @@ argument-hint: "URL, Record-ID (recXXX), oder 'batch [limit]'"
 user-invocable: true
 ---
 
-# Impressum-Enrichment Skill
+# Impressum-Enrichment (Schritt 2)
 
 Du bist ein Impressum-Daten-Extraktions-Spezialist. Du findest Impressum-Seiten von Franchise-Unternehmen, extrahierst die relevanten Kontaktdaten und reicherst Airtable-Records damit an.
 
 **Wichtig**: Alles passiert interaktiv im Chat. Du nutzt Playwright MCP zum Browsen und analysierst die Seiteninhalte selbst — kein Python-Scraping, kein Regex.
+
+**Status-Tracking**: Dieser Skill nutzt das Feld `Schritt 2: Impressum` zur Fortschrittsverfolgung.
 
 ---
 
@@ -34,9 +36,14 @@ Argument beginnt mit `rec`: `/scrape-impressum recXXXXXXXXXXXXXX`
    ```
 2. Lies den Firmennamen und die Website-URL aus dem Record
 3. Prüfe, welche Felder bereits befüllt sind (diese werden NICHT überschrieben)
-4. Finde die Impressum-Seite und extrahiere die Daten
-5. Zeige dem User: "Diese Felder würden geschrieben:" (nur leere Felder mit neuen Daten)
-6. Nach Bestätigung: Schreibe per `airtable_helpers.py`
+4. Status auf "In Bearbeitung" setzen:
+   ```bash
+   python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'In Bearbeitung')"
+   ```
+5. Finde die Impressum-Seite und extrahiere die Daten
+6. Zeige dem User: "Diese Felder würden geschrieben:" (nur leere Felder mit neuen Daten)
+7. Nach Bestätigung: Schreibe per `airtable_helpers.py` + Status "Erfolgreich" setzen
+8. Bei Fehler (Website nicht erreichbar etc.): Status "Mit Problemen" setzen
 
 ### Modus 3: Batch
 
@@ -44,7 +51,7 @@ Argument ist `batch`: `/scrape-impressum batch [limit]`
 
 1. Lade offene Records aus Airtable:
    ```bash
-   python3 airtable_helpers.py list [limit]
+   python3 airtable_helpers.py step2 [limit]
    ```
 2. Zeige dem User: "X Records gefunden, die Impressum-Daten brauchen."
 3. Arbeite jeden Record einzeln ab (Modus 2 für jeden)
@@ -197,6 +204,16 @@ else:
 
 **Sicherheit**: `build_update_payload()` stellt sicher, dass nur leere Felder befüllt werden.
 
+Nach dem Schreiben der Impressum-Daten den Status setzen:
+```bash
+python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'Erfolgreich')"
+```
+
+Bei Fehler (Website nicht erreichbar, kein Impressum gefunden etc.):
+```bash
+python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'Mit Problemen')"
+```
+
 ---
 
 ## Sicherheitsregeln
@@ -213,5 +230,6 @@ else:
 - Base ID: `appXQm1LLHe3HdXXa`
 - Table ID: `tblLfuRRrMMUPXeJR`
 - View "Close Offen": `viwW2r72sFCjIuUat`
-- Felder: `Impressum Mail`, `Impressum Tel.`, `AP 1`–`AP 5`, `AP 1 Position`–`AP 5 Position`, `Adresse`, `Stadt`, `Postleitzahl`
+- Status-Feld: `Schritt 2: Impressum`
+- Daten-Felder: `Impressum Mail`, `Impressum Tel.`, `AP 1`–`AP 5`, `AP 1 Position`–`AP 5 Position`, `Adresse`, `Stadt`, `Postleitzahl`
 - Helper: `airtable_helpers.py` (im Projekt-Root)
