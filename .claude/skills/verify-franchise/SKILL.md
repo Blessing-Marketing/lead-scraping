@@ -44,10 +44,13 @@ Argument ist `batch`: `/verify-franchise batch [limit]`
    python3 airtable_helpers.py step1 [limit]
    ```
 2. Zeige: "X Records brauchen Validierung."
-3. Jeden Record einzeln abarbeiten (Modus 1)
-4. Erste 3 Records: einzeln bestätigen lassen
-5. Danach fragen: "Soll ich die restlichen automatisch übernehmen?"
-6. Am Ende: Zusammenfassung (erfolgreich / mit Problemen / übersprungen)
+3. Jeden Record einzeln abarbeiten (Modus 1-Logik)
+4. **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
+   - Fortschritt ist crash-sicher: Status-Felder in Airtable tracken den Stand
+   - Bei Session-Abbruch: Einfach `/verify-franchise batch` neu starten — bereits verarbeitete Records werden übersprungen
+5. Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X/Y erledigt)
+6. Am Ende: Gesamtzusammenfassung (erfolgreich / mit Problemen / übersprungen)
+7. Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
 
 ---
 

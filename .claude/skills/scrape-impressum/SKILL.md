@@ -62,11 +62,13 @@ Argument ist `batch`: `/scrape-impressum batch [limit]`
    **Wichtig**: Nur Records verarbeiten wo `Schritt 1: Validierung` = "Erfolgreich".
    Records mit `Schritt 1: Validierung` = "Mit Problemen" oder leer überspringen und melden.
 2. Zeige dem User: "X Records gefunden, die Impressum-Daten brauchen."
-3. Arbeite jeden Record einzeln ab (Modus 2 für jeden)
-4. Zeige nach jedem Record eine kurze Zusammenfassung
-5. Erste 3 Records: Einzeln bestätigen lassen
-6. Danach fragen: "Soll ich die restlichen automatisch übernehmen?"
-7. Am Ende: Gesamtzusammenfassung (erfolgreich / übersprungen / fehlgeschlagen)
+3. Arbeite jeden Record einzeln ab (Modus 2-Logik)
+4. **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
+   - Fortschritt ist crash-sicher: Status-Felder in Airtable tracken den Stand
+   - Bei Session-Abbruch: Einfach `/scrape-impressum batch` neu starten — bereits verarbeitete Records werden übersprungen
+5. Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X/Y erledigt)
+6. Am Ende: Gesamtzusammenfassung (erfolgreich / übersprungen / fehlgeschlagen)
+7. Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
 
 ---
 
