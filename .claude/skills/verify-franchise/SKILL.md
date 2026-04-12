@@ -29,7 +29,7 @@ Argument beginnt mit `rec`: `/verify-franchise recXXXXXXXXXXXXXX`
 2. Prüfe ob `Schritt 1: Validierung` bereits gesetzt ist. Falls ja: User fragen ob nochmal verarbeiten.
 3. Status auf "In Bearbeitung" setzen:
    ```bash
-   python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 1: Validierung', 'In Bearbeitung')"
+   python3 airtable_helpers.py write RECORD_ID '{}' 'Schritt 1: Validierung' 'In Bearbeitung'
    ```
 4. Recherche-Workflow durchführen (siehe unten)
 5. Ergebnisse dem User zeigen
@@ -39,22 +39,30 @@ Argument beginnt mit `rec`: `/verify-franchise recXXXXXXXXXXXXXX`
 
 Argument ist `batch`: `/verify-franchise batch [limit]`
 
-1. Records laden:
+**Claim-Schleife** — arbeite immer in kleinen Batches, nie alle Records auf einmal laden:
+
+1. **Records claimen** (fetch + sofort "In Bearbeitung" setzen):
    ```bash
-   python3 airtable_helpers.py step1 [limit]
+   python3 airtable_helpers.py claim1 4
    ```
-2. Zeige: "X Records brauchen Validierung."
-3. **Parallel-Batch-Verarbeitung**: Statt Records einzeln nacheinander zu verarbeiten, immer **4 Records gleichzeitig** abarbeiten:
-   - Für alle 4 Records parallel: Status auf "In Bearbeitung" setzen (1 Bash-Call)
-   - Für alle 4 Records parallel: WebSearch-Aufrufe starten (bis zu 4 WebSearch gleichzeitig)
-   - Ergebnisse aller 4 Records in **einem** `python3 -c` Bash-Call nach Airtable schreiben (update_record_fields + set_step_status für alle 4 in einem Script)
-   - Dann die nächsten 4 Records
-4. **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
-   - Fortschritt ist crash-sicher: Status-Felder in Airtable tracken den Stand
-   - Bei Session-Abbruch: Einfach `/verify-franchise batch` neu starten — bereits verarbeitete Records werden übersprungen
-5. Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X/Y erledigt)
-6. Am Ende: Gesamtzusammenfassung (erfolgreich / mit Problemen / übersprungen)
-7. Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
+   Das holt bis zu 4 offene Records UND setzt deren Status sofort auf "In Bearbeitung" —
+   andere Claude-Instanzen sehen diese Records dann nicht mehr als offen.
+2. Falls **keine Records** zurückkommen → fertig, alle Records verarbeitet. Gesamtzusammenfassung zeigen.
+3. Für alle geclaimten Records **parallel**: WebSearch-Aufrufe starten (bis zu 4 WebSearch gleichzeitig)
+4. Ergebnisse aller Records nach Airtable schreiben — pro Record ein `write`-Aufruf:
+   `python3 airtable_helpers.py write RECORD_ID '{"...": "..."}' 'Schritt 1: Validierung' 'Erfolgreich'`
+5. **Zurück zu Schritt 1** — nächsten Batch claimen.
+
+**Regeln:**
+- **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
+- **Crash-sicher**: Status-Felder in Airtable tracken den Stand. Bei Session-Abbruch einfach
+  `/verify-franchise batch` neu starten — geclaimte Records (Status "In Bearbeitung") werden übersprungen.
+  Records die beim Crash "In Bearbeitung" blieben, müssen ggf. manuell in Airtable zurückgesetzt werden.
+- **Parallel-sicher**: Dieses Design ist sicher für mehrere gleichzeitige Claude-Code-Instanzen.
+  Jede Instanz claimed immer nur 4 Records auf einmal, die sofort als "In Bearbeitung" markiert werden.
+- Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X erledigt)
+- Am Ende: Gesamtzusammenfassung (erfolgreich / mit Problemen / übersprungen)
+- Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
 
 ---
 
@@ -267,65 +275,30 @@ Airtable-Update:
 
 ## Airtable schreiben
 
-Zum Schreiben nutze den Python-Helper:
+Nutze den `write`-Befehl — ein einzelner Einzeiler-Aufruf für Felder + Status:
 
 ```bash
-python3 -c "
-from airtable_helpers import update_record_fields, set_step_status
-
-# Daten schreiben (protect_existing=True: nie überschreiben)
-update_record_fields('RECORD_ID', {
-    'Unternehmensname': 'Beispiel GmbH & Co. KG',
-    'Ist es ein Franchise-System?': 0.85,
-    'Ist es ein Franchise-System? Begründung': 'Auf franchise-portal.de gelistet...',
-    'Zusammenfassung (kurz)': 'Beispiel ist ein Franchise für...',
-    'Zusammenfassung (lang)': 'Beispiel ist ein Franchise... (5 Sätze)',
-    'Anzahl Standorte': '62',
-    'Anzahl Mitarbeiter': 'ca. 250',
-    'Gründungsdatum': '2011',
-    'Franchise-Portal URLs': 'https://franchiseportal.de/...\nhttps://franchiseverband.com/...',
-}, protect_existing=True)
-
-# Status setzen (überschreibt immer, Datum wird automatisch gesetzt)
-set_step_status('RECORD_ID', 'Schritt 1: Validierung', 'Erfolgreich')
-print('Erfolgreich aktualisiert')
-"
+python3 airtable_helpers.py write RECORD_ID '{"Unternehmensname": "Beispiel GmbH & Co. KG", "Ist es ein Franchise-System?": 0.85, "Ist es ein Franchise-System? Begründung": "Auf franchise-portal.de gelistet...", "Zusammenfassung (kurz)": "Beispiel ist ein Franchise für...", "Zusammenfassung (lang)": "Beispiel ist ein Franchise... (5 Sätze)", "Anzahl Standorte": "62", "Anzahl Mitarbeiter": "ca. 250", "Gründungsdatum": "2011", "Franchise-Portal URLs": "https://franchiseportal.de/...\nhttps://franchiseverband.com/..."}' 'Schritt 1: Validierung' 'Erfolgreich'
 ```
 
-Wenn die Website-URL korrigiert werden muss (nur nach expliziter User-Bestätigung):
+Wenn die Website-URL korrigiert werden muss (im Batch-Modus direkt mit in die JSON-Felder aufnehmen):
 ```bash
-python3 -c "
-from airtable_helpers import update_record_fields
-update_record_fields('RECORD_ID', {
-    'Webseite': 'https://neue-url.de',
-}, protect_existing=False)
-print('Website-URL aktualisiert')
-"
-```
-
-Wenn der Franchise-Name korrigiert werden muss (nur nach expliziter User-Bestätigung):
-```bash
-python3 -c "
-from airtable_helpers import update_record_fields
-update_record_fields('RECORD_ID', {
-    'NAME DES FRANCHISE-UNTERNEHMENS': 'Korrekter Franchise-Name',
-}, protect_existing=False)
-print('Franchise-Name aktualisiert')
-"
+python3 airtable_helpers.py write RECORD_ID '{"Webseite": "https://neue-url.de", "Unternehmensname": "..."}' 'Schritt 1: Validierung' 'Erfolgreich'
 ```
 
 **Hinweis:** `Webseite (https-Standardisiert)` ist ein berechnetes Feld — nur `Webseite` schreiben.
+
+**Mehrere Records schreiben** (für Batch-Modus): Einfach mehrere `write`-Aufrufe parallel als separate Bash-Calls ausführen.
 
 ---
 
 ## Sicherheitsregeln
 
-1. **Nie bestehende Daten überschreiben** — außer Website-URL nach expliziter User-Bestätigung
-2. **Vor jedem Schreibvorgang dem User zeigen**, welche Felder geschrieben werden
-3. **Keine DELETE-Requests** an Airtable — siehe CLAUDE.md
-4. **API Keys nie im Output zeigen**
-5. **WebSearch primär, Apify nur als Fallback** — spart Apify-Credits
-6. **Bei Unsicherheit: User fragen**
+1. **Keine DELETE-Requests** an Airtable — siehe CLAUDE.md
+2. **API Keys nie im Output zeigen**
+3. **WebSearch primär, Apify nur als Fallback** — spart Apify-Credits
+4. **Batch-Modus**: Daten direkt schreiben, keine Bestätigungen nötig
+5. **Einzelmodus**: Ergebnisse dem User zeigen, nach Bestätigung schreiben
 
 ## Airtable-Konfiguration
 

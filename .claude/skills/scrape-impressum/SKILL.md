@@ -44,7 +44,7 @@ Argument beginnt mit `rec`: `/scrape-impressum recXXXXXXXXXXXXXX`
 3. Prüfe, welche Felder bereits befüllt sind (diese werden NICHT überschrieben)
 4. Status auf "In Bearbeitung" setzen:
    ```bash
-   python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'In Bearbeitung')"
+   python3 airtable_helpers.py write RECORD_ID '{}' 'Schritt 2: Impressum' 'In Bearbeitung'
    ```
 5. Finde die Impressum-Seite und extrahiere die Daten
 6. Zeige dem User: "Diese Felder würden geschrieben:" (nur leere Felder mit neuen Daten)
@@ -55,20 +55,27 @@ Argument beginnt mit `rec`: `/scrape-impressum recXXXXXXXXXXXXXX`
 
 Argument ist `batch`: `/scrape-impressum batch [limit]`
 
-1. Lade offene Records aus Airtable:
+**Claim-Schleife** — arbeite immer in kleinen Batches, nie alle Records auf einmal laden:
+
+1. **Records claimen** (fetch + sofort "In Bearbeitung" setzen):
    ```bash
-   python3 airtable_helpers.py step2 [limit]
+   python3 airtable_helpers.py claim2 4
    ```
-   **Wichtig**: Nur Records verarbeiten wo `Schritt 1: Validierung` = "Erfolgreich".
-   Records mit `Schritt 1: Validierung` = "Mit Problemen" oder leer überspringen und melden.
-2. Zeige dem User: "X Records gefunden, die Impressum-Daten brauchen."
-3. Arbeite jeden Record einzeln ab (Modus 2-Logik)
-4. **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
-   - Fortschritt ist crash-sicher: Status-Felder in Airtable tracken den Stand
-   - Bei Session-Abbruch: Einfach `/scrape-impressum batch` neu starten — bereits verarbeitete Records werden übersprungen
-5. Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X/Y erledigt)
-6. Am Ende: Gesamtzusammenfassung (erfolgreich / übersprungen / fehlgeschlagen)
-7. Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
+   Das holt bis zu 4 offene Records UND setzt deren Status sofort auf "In Bearbeitung".
+2. Falls **keine Records** zurückkommen → fertig, alle Records verarbeitet. Gesamtzusammenfassung zeigen.
+3. **Wichtig**: Nur Records verarbeiten wo `Schritt 1: Validierung` = "Erfolgreich".
+   Records mit `Schritt 1: Validierung` = "Mit Problemen" oder leer → Status "Mit Problemen" setzen und überspringen.
+4. Jeden geclaimten Record einzeln abarbeiten (Modus 2-Logik).
+5. **Zurück zu Schritt 1** — nächsten Batch claimen.
+
+**Regeln:**
+- **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
+- **Crash-sicher**: Status-Felder in Airtable tracken den Stand. Bei Session-Abbruch einfach
+  `/scrape-impressum batch` neu starten — geclaimte Records werden übersprungen.
+- **Parallel-sicher**: Dieses Design ist sicher für mehrere gleichzeitige Claude-Code-Instanzen.
+- Alle 10 Records: Kurze Fortschritts-Zusammenfassung anzeigen (X erledigt)
+- Am Ende: Gesamtzusammenfassung (erfolgreich / übersprungen / fehlgeschlagen)
+- Bei Fehlern eines einzelnen Records: Status "Mit Problemen" setzen und mit dem nächsten Record fortfahren — **niemals den Batch abbrechen**
 
 ---
 
@@ -228,36 +235,15 @@ Airtable-Update (nur leere Felder):
 
 ## Airtable schreiben
 
-Zum Schreiben nutze den Python-Helper:
+Nutze den `write`-Befehl — ein einzelner Einzeiler-Aufruf für Felder + Status:
 
 ```bash
-python3 -c "
-from airtable_helpers import fetch_single_record, build_update_payload, update_single_record, set_step_status
-rec = fetch_single_record('RECORD_ID')
-fields = rec['fields']
-payload = build_update_payload(
-    'RECORD_ID', fields,
-    email='info@example.com',
-    phone='+49 123 456789',
-    geschaeftsfuehrer=['Max Mustermann', 'Erika Musterfrau'],
-    adresse='Musterstraße 1',
-    plz='12345',
-    ort='Berlin',
-)
-if payload:
-    update_single_record('RECORD_ID', payload['fields'])
-    set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'Erfolgreich')
-    print('Erfolgreich aktualisiert')
-else:
-    print('Keine neuen Daten zum Schreiben')
-"
+python3 airtable_helpers.py write RECORD_ID '{"E-Mail": "info@example.com", "Telefon": "+49 123 456789", "Geschäftsführer": "Max Mustermann, Erika Musterfrau", "Adresse": "Musterstraße 1", "Postleitzahl": "12345", "Stadt": "Berlin"}' 'Schritt 2: Impressum' 'Erfolgreich'
 ```
-
-**Sicherheit**: `build_update_payload()` stellt sicher, dass nur leere Felder befüllt werden.
 
 Bei Fehler (Website nicht erreichbar, kein Impressum gefunden etc.):
 ```bash
-python3 -c "from airtable_helpers import set_step_status; set_step_status('RECORD_ID', 'Schritt 2: Impressum', 'Mit Problemen')"
+python3 airtable_helpers.py write RECORD_ID '{}' 'Schritt 2: Impressum' 'Mit Problemen'
 ```
 
 ---

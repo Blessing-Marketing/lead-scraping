@@ -252,6 +252,61 @@ def fetch_records_for_step(step_field: str,
     return all_records
 
 
+def claim_records_for_step(step_field: str,
+                           count: int = 4,
+                           fields: list[str] | None = None,
+                           view_id: str = AIRTABLE_VIEW_CLOSE_OFFEN) -> list[dict]:
+    """
+    Holt bis zu `count` offene Records und setzt deren Status sofort auf
+    "In Bearbeitung". Minimiert das Race-Window bei parallelen Instanzen
+    auf einen einzigen Python-Call (~500ms).
+
+    Returns:
+        Liste der geclaimten Records (mit Felddaten), oder [] wenn keine
+        verfügbar oder Claim fehlgeschlagen.
+    """
+    if fields is None:
+        fields = _BASE_FIELDS + _ADDRESS_FIELDS + _STEP_FIELDS
+
+    params = {
+        "view": view_id,
+        "pageSize": count,
+        "filterByFormula": f"{{{step_field}}} = ''",
+        "fields[]": fields,
+    }
+
+    resp = requests.get(AIRTABLE_BASE_URL, headers=_headers(), params=params)
+    if resp.status_code == 422:
+        log.warning("Einige Felder nicht vorhanden — bitte 'setup-fields' ausführen")
+        params["fields[]"] = _BASE_FIELDS
+        resp = requests.get(AIRTABLE_BASE_URL, headers=_headers(), params=params)
+    resp.raise_for_status()
+    records = resp.json().get("records", [])
+
+    if not records:
+        return []
+
+    # Sofort alle geholten Records als "In Bearbeitung" markieren (1 Batch-PATCH)
+    updates = [
+        {"id": rec["id"], "fields": {step_field: "In Bearbeitung"}}
+        for rec in records
+    ]
+
+    try:
+        claim_resp = requests.patch(
+            AIRTABLE_BASE_URL,
+            headers=_headers(),
+            json={"records": updates},
+        )
+        claim_resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        log.error(f"Claim fehlgeschlagen für {len(records)} Records: {e}")
+        return []
+
+    log.info(f"{len(records)} Records für '{step_field}' geclaimed")
+    return records
+
+
 # ---------------------------------------------------------------------------
 # Lesen: Legacy + Einzelrecord
 # ---------------------------------------------------------------------------
@@ -524,6 +579,9 @@ if __name__ == "__main__":
         print("  python airtable_helpers.py setup-fields         — Neue Felder anlegen")
         print("  python airtable_helpers.py step1 [limit]        — Records für Schritt 1")
         print("  python airtable_helpers.py step2 [limit]        — Records für Schritt 2")
+        print("  python airtable_helpers.py claim1 [count]       — Records für Schritt 1 claimen (default: 4)")
+        print("  python airtable_helpers.py claim2 [count]       — Records für Schritt 2 claimen (default: 4)")
+        print("  python airtable_helpers.py write <id> '<json>' '<step_field>' '<status>'  — Record schreiben")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -562,6 +620,45 @@ if __name__ == "__main__":
         records = fetch_records_for_step("Schritt 2: Impressum", limit=limit)
         print(f"{len(records)} Records brauchen Schritt 2 (Impressum):")
         _print_records(records)
+
+    elif cmd == "claim1":
+        count = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        records = claim_records_for_step("Schritt 1: Validierung", count=count)
+        if records:
+            print(f"{len(records)} Records geclaimed für Schritt 1:")
+            _print_records(records)
+        else:
+            print("Keine offenen Records für Schritt 1 gefunden.")
+
+    elif cmd == "claim2":
+        count = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        records = claim_records_for_step("Schritt 2: Impressum", count=count)
+        if records:
+            print(f"{len(records)} Records geclaimed für Schritt 2:")
+            _print_records(records)
+        else:
+            print("Keine offenen Records für Schritt 2 gefunden.")
+
+    elif cmd == "write":
+        # Usage: python3 airtable_helpers.py write <record_id> '<json_fields>' '<step_field>' '<status>'
+        if len(sys.argv) < 5:
+            print("Usage: python airtable_helpers.py write <record_id> '<json_fields>' '<step_field>' '<status>'")
+            print("  Beispiel: python airtable_helpers.py write recXXX '{\"Unternehmensname\": \"Test GmbH\"}' 'Schritt 1: Validierung' 'Erfolgreich'")
+            sys.exit(1)
+        record_id = sys.argv[2]
+        fields = json.loads(sys.argv[3])
+        step_field = sys.argv[4]
+        status = sys.argv[5] if len(sys.argv) > 5 else None
+
+        if fields:
+            update_record_fields(record_id, fields, protect_existing=False)
+            print(f"  Felder geschrieben: {', '.join(fields.keys())}")
+
+        if status:
+            set_step_status(record_id, step_field, status)
+            print(f"  Status: {step_field} → {status}")
+
+        print(f"Record {record_id} aktualisiert.")
 
     else:
         print(f"Unbekannter Befehl: {cmd}")
