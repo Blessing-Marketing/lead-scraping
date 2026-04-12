@@ -44,7 +44,11 @@ Argument ist `batch`: `/verify-franchise batch [limit]`
    python3 airtable_helpers.py step1 [limit]
    ```
 2. Zeige: "X Records brauchen Validierung."
-3. Jeden Record einzeln abarbeiten (Modus 1-Logik)
+3. **Parallel-Batch-Verarbeitung**: Statt Records einzeln nacheinander zu verarbeiten, immer **4 Records gleichzeitig** abarbeiten:
+   - Für alle 4 Records parallel: Status auf "In Bearbeitung" setzen (1 Bash-Call)
+   - Für alle 4 Records parallel: WebSearch-Aufrufe starten (bis zu 4 WebSearch gleichzeitig)
+   - Ergebnisse aller 4 Records in **einem** `python3 -c` Bash-Call nach Airtable schreiben (update_record_fields + set_step_status für alle 4 in einem Script)
+   - Dann die nächsten 4 Records
 4. **Full-Auto-Modus**: Daten werden direkt geschrieben, KEINE Bestätigungen nötig.
    - Fortschritt ist crash-sicher: Status-Felder in Airtable tracken den Stand
    - Bei Session-Abbruch: Einfach `/verify-franchise batch` neu starten — bereits verarbeitete Records werden übersprungen
@@ -92,8 +96,8 @@ Zuerst prüfen, ob die aktuelle Airtable-URL erreichbar ist und zum Unternehmen 
 4. **Abgleich mit Schritt A:**
    - Airtable-URL erreichbar UND Google-URL stimmt überein → "Website korrekt"
    - Airtable-URL erreichbar ABER Google zeigt andere URL → Beide dem User zeigen, entscheiden lassen
-   - Airtable-URL nicht erreichbar UND Google zeigt andere URL → Website-Korrektur vorschlagen
-   - Airtable-URL nicht erreichbar UND Google findet auch nichts → "Mit Problemen" markieren
+   - Airtable-URL nicht erreichbar UND Google zeigt andere URL → URL-Abweichung in Begründung vermerken (kein "Mit Problemen" — die Recherche war trotzdem erfolgreich)
+   - Airtable-URL nicht erreichbar UND Google findet auch nichts → URL-Problem in Begründung vermerken, Recherche mit den verfügbaren Infos fortsetzen
 
 ### Schritt D: Franchise-Name prüfen
 
@@ -132,11 +136,23 @@ Bewerte anhand ALLER gesammelten Informationen (Schritt A–E):
 **Negativ-Signale** (reduzieren den Prozentsatz):
 - Keine Franchise-Hinweise in den Top-10 Google-Ergebnissen (-30%)
 - Nur ein einzelner Standort erkennbar (-20%)
-- Website offline oder Domain geparkt (→ "Mit Problemen")
+- Website offline oder Domain geparkt (-10%, aber kein "Mit Problemen" wenn Recherche sonst erfolgreich)
 - Ergebnisse deuten auf Lizenzmodell statt Franchise (-15%)
-- Unternehmen scheint aufgelöst/insolvent (→ "Mit Problemen")
+- Unternehmen scheint aufgelöst/insolvent (-25%)
 
 **Ergebnis**: Prozentsatz (0-100%) + deutsche Begründung (1-3 Sätze)
+
+### Wann "Mit Problemen" setzen?
+
+"Mit Problemen" wird **nur** gesetzt, wenn die Recherche selbst nicht erfolgreich abgeschlossen werden konnte:
+- Unternehmen ist über Google/Web überhaupt nicht auffindbar (keinerlei Treffer)
+- Franchise existiert nachweislich nicht mehr (aufgelöst, insolvent, abgemeldet)
+- Technische Fehler verhindern die Datenerhebung komplett (alle Quellen blockiert)
+
+**Kein "Mit Problemen"** bei:
+- URL in Airtable ist falsch/nicht erreichbar, aber Unternehmen wurde über Google gefunden → "Erfolgreich", URL-Abweichung in Begründung vermerken
+- Einzelne Felder konnten nicht befüllt werden (z.B. Standortzahl unbekannt) → "Erfolgreich", leere Felder sind okay
+- Franchise-Score ist niedrig → "Erfolgreich" mit niedrigem Score
 
 ### Schritt G: Franchise-Details extrahieren
 
