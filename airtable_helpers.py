@@ -65,6 +65,12 @@ _STEP_FIELDS = [
     "Ist es ein Franchise-System? Begründung",
     "Schritt 1: Datum",
     "Schritt 2: Datum",
+    "Zusammenfassung (kurz)",
+    "Zusammenfassung (lang)",
+    "Anzahl Standorte",
+    "Anzahl Mitarbeiter",
+    "Gründungsdatum",
+    "Franchise-Portal URLs",
 ]
 
 # Felder, die per setup-fields angelegt werden sollen
@@ -121,6 +127,30 @@ FIELD_DEFINITIONS = [
             "timeFormat": {"name": "24hour", "format": "HH:mm"},
             "timeZone": "Europe/Berlin",
         },
+    },
+    {
+        "name": "Zusammenfassung (kurz)",
+        "type": "singleLineText",
+    },
+    {
+        "name": "Zusammenfassung (lang)",
+        "type": "multilineText",
+    },
+    {
+        "name": "Anzahl Standorte",
+        "type": "singleLineText",
+    },
+    {
+        "name": "Anzahl Mitarbeiter",
+        "type": "singleLineText",
+    },
+    {
+        "name": "Gründungsdatum",
+        "type": "singleLineText",
+    },
+    {
+        "name": "Franchise-Portal URLs",
+        "type": "multilineText",
     },
 ]
 

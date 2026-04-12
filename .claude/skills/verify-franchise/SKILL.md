@@ -135,6 +135,21 @@ Bewerte anhand ALLER gesammelten Informationen (Schritt A–E):
 
 **Ergebnis**: Prozentsatz (0-100%) + deutsche Begründung (1-3 Sätze)
 
+### Schritt G: Franchise-Details extrahieren
+
+Aus den **bereits vorhandenen** Suchergebnissen (Schritt B+C) und ggf. dem Impressum (Schritt E) extrahiere:
+
+1. **Zusammenfassung (kurz)**: 1 Satz — was macht das Franchise? Branche, Kerngeschäft.
+   - Beispiel: "Locatec ist ein Franchise-System für professionelle Leck- und Leitungsortung in Gebäuden."
+2. **Zusammenfassung (lang)**: 5 Sätze — ausführlichere Beschreibung mit Alleinstellungsmerkmalen, Zielgruppe, Geschäftsmodell.
+3. **Anzahl Standorte**: Exakte Zahl wenn in Suchergebnissen genannt, sonst "ca. X". Wenn unbekannt: leer lassen.
+4. **Anzahl Mitarbeiter**: Exakte Zahl wenn bekannt, sonst "ca. X". Wenn unbekannt: leer lassen.
+5. **Gründungsdatum**: Jahr (z.B. "2011") oder volles Datum wenn bekannt. Wenn unbekannt: leer lassen.
+6. **Franchise-Portal URLs**: Alle URLs aus den Suchergebnissen die auf Franchise-Portale zeigen, eine pro Zeile:
+   - franchise-portal.de, franchiseportal.de, franchisedirekt.com, franchiseverband.com
+   - FranchiseCHECK.de, franchiseERFOLGE.de, fuer-gruender.de/franchiseboerse
+   - **Kein zusätzliches Scraping** — nur URLs die in Schritt B+C bereits aufgetaucht sind
+
 ---
 
 ## Google-Suche: WebSearch + Apify-Fallback
@@ -202,19 +217,31 @@ Webseite (Playwright):  [erreichbar/nicht erreichbar/geparkt/redirect → neue U
 Webseite (Google):      [URL aus Suche]
 
 Ergebnisse:
-  Franchise-System:    85%
-  Begründung:          "Auf franchise-portal.de gelistet, Website wirbt aktiv Franchisenehmer..."
-  Unternehmensname:    Beispiel GmbH & Co. KG
-  Website korrekt:     Ja / Nein → neue URL: https://...
+  Franchise-System:       85%
+  Begründung:             "Auf franchise-portal.de gelistet..."
+  Unternehmensname:       Beispiel GmbH & Co. KG
+  Website korrekt:        Ja / Nein → neue URL: https://...
+  Zusammenfassung (kurz): "Beispiel ist ein Franchise für..."
+  Zusammenfassung (lang): "Beispiel ist ein Franchise... (5 Sätze)"
+  Standorte:              62 / ca. 60 / unbekannt
+  Mitarbeiter:            250 / ca. 200 / unbekannt
+  Gründungsdatum:         2011
+  Franchise-Portal URLs:  https://franchiseportal.de/..., https://franchiseverband.com/...
 
 Airtable-Update:
   NAME DES FRANCHISE-UNTERNEHMENS           → [nur bei Korrektur, nach Bestätigung]
   Unternehmensname                          → Beispiel GmbH & Co. KG
   Ist es ein Franchise-System?              → 0.85
   Ist es ein Franchise-System? Begründung   → "..."
+  Zusammenfassung (kurz)                    → "..."
+  Zusammenfassung (lang)                    → "..."
+  Anzahl Standorte                          → "62" / "ca. 60"
+  Anzahl Mitarbeiter                        → "250" / "ca. 200"
+  Gründungsdatum                            → "2011"
+  Franchise-Portal URLs                     → "https://...\nhttps://..."
   Webseite                                  → [nur bei Änderung, nach Bestätigung]
   Schritt 1: Validierung                    → Erfolgreich
-  Schritt 1: Datum                          → [automatisch, heutiges Datum]
+  Schritt 1: Datum                          → [automatisch]
 ```
 
 ---
@@ -232,6 +259,12 @@ update_record_fields('RECORD_ID', {
     'Unternehmensname': 'Beispiel GmbH & Co. KG',
     'Ist es ein Franchise-System?': 0.85,
     'Ist es ein Franchise-System? Begründung': 'Auf franchise-portal.de gelistet...',
+    'Zusammenfassung (kurz)': 'Beispiel ist ein Franchise für...',
+    'Zusammenfassung (lang)': 'Beispiel ist ein Franchise... (5 Sätze)',
+    'Anzahl Standorte': '62',
+    'Anzahl Mitarbeiter': 'ca. 250',
+    'Gründungsdatum': '2011',
+    'Franchise-Portal URLs': 'https://franchiseportal.de/...\nhttps://franchiseverband.com/...',
 }, protect_existing=True)
 
 # Status setzen (überschreibt immer, Datum wird automatisch gesetzt)
@@ -282,7 +315,7 @@ print('Franchise-Name aktualisiert')
 - View "Close Offen": `viwW2r72sFCjIuUat`
 - Status-Feld: `Schritt 1: Validierung`
 - Datums-Feld: `Schritt 1: Datum` (wird automatisch von `set_step_status` gesetzt)
-- Daten-Felder: `Unternehmensname`, `Ist es ein Franchise-System?`, `Ist es ein Franchise-System? Begründung`
+- Daten-Felder: `Unternehmensname`, `Ist es ein Franchise-System?`, `Ist es ein Franchise-System? Begründung`, `Zusammenfassung (kurz)`, `Zusammenfassung (lang)`, `Anzahl Standorte`, `Anzahl Mitarbeiter`, `Gründungsdatum`, `Franchise-Portal URLs`
 - Korrigierbar (nach Bestätigung): `NAME DES FRANCHISE-UNTERNEHMENS`, `Webseite`
 - Helper: `airtable_helpers.py` (im Projekt-Root)
 - Apify API Key: `apify_api_key` in `.env`
