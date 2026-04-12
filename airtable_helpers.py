@@ -106,13 +106,21 @@ FIELD_DEFINITIONS = [
     },
     {
         "name": "Schritt 1: Datum",
-        "type": "date",
-        "options": {"dateFormat": {"name": "european", "format": "D/M/YYYY"}},
+        "type": "dateTime",
+        "options": {
+            "dateFormat": {"name": "european", "format": "D/M/YYYY"},
+            "timeFormat": {"name": "24hour", "format": "HH:mm"},
+            "timeZone": "Europe/Berlin",
+        },
     },
     {
         "name": "Schritt 2: Datum",
-        "type": "date",
-        "options": {"dateFormat": {"name": "european", "format": "D/M/YYYY"}},
+        "type": "dateTime",
+        "options": {
+            "dateFormat": {"name": "european", "format": "D/M/YYYY"},
+            "timeFormat": {"name": "24hour", "format": "HH:mm"},
+            "timeZone": "Europe/Berlin",
+        },
     },
 ]
 
@@ -395,18 +403,18 @@ def set_step_status(record_id: str, step_field: str, status: str,
         status: "In Bearbeitung", "Erfolgreich", oder "Mit Problemen"
         dry_run: Wenn True, wird nichts geschrieben
     """
-    from datetime import date
+    from datetime import datetime, timezone
 
     if status not in STEP_STATUSES:
         raise ValueError(f"Ungültiger Status '{status}'. Erlaubt: {STEP_STATUSES}")
 
     fields = {step_field: status}
 
-    # Bei Abschluss (Erfolgreich/Mit Problemen) automatisch Datum setzen
+    # Bei Abschluss (Erfolgreich/Mit Problemen) automatisch Datum+Uhrzeit setzen
     if status in ("Erfolgreich", "Mit Problemen"):
         date_field = STEP_DATE_FIELDS.get(step_field)
         if date_field:
-            fields[date_field] = date.today().isoformat()
+            fields[date_field] = datetime.now(timezone.utc).isoformat()
 
     if dry_run:
         print(f"[DRY RUN] {record_id}: {fields}")
