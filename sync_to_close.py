@@ -423,6 +423,13 @@ def main():
             skipped += 1
             continue
 
+        # Nur Records importieren, die Schritt 3 erfolgreich abgeschlossen haben
+        schritt3_status = fields.get("Schritt 3: Ansprechpartner", "") or ""
+        if schritt3_status != "Erfolgreich":
+            log.info(f"  [{i}/{len(records)}] Übersprungen (Schritt 3 nicht erfolgreich: '{schritt3_status}'): {firma}")
+            skipped += 1
+            continue
+
         if args.dry_run:
             lead_data = map_record_to_lead(record, args.leadherkunft, args.import_id)
             n_contacts = len(lead_data.get("contacts", []))
