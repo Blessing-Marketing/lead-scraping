@@ -8,6 +8,8 @@ Generische Infrastruktur für Multi-Step-Workflows:
 - Sichere Updates (nie bestehende Daten überschreiben)
 """
 
+from __future__ import annotations
+
 import os
 import json
 import time
@@ -53,6 +55,14 @@ _BASE_FIELDS = [
     "AP 3", "AP 3 Position",
     "AP 4", "AP 4 Position",
     "AP 5", "AP 5  Position",
+    "AP 1 Mail", "AP 1 Tel.",
+    "AP 2 Mail", "AP 2 Tel.",
+    "AP 3 Mail", "AP 3 Tel.",
+    "AP 4 Mail", "AP 4 Tel.",
+    "AP 5 Mail", "AP 5 Tel.",
+    "Weitere Ansprechpartner",
+    "Weitere Telefonnummern",
+    "Relevante Infos",
 ]
 
 _ADDRESS_FIELDS = ["Adresse", "Stadt", "Postleitzahl"]
@@ -71,6 +81,9 @@ _STEP_FIELDS = [
     "Anzahl Mitarbeiter",
     "Gründungsdatum",
     "Franchise-Portal URLs",
+    "Schritt 3: Ansprechpartner",
+    "Schritt 3: Datum",
+    "Schritt 3: Kommentar",
 ]
 
 # Felder, die per setup-fields angelegt werden sollen
@@ -150,6 +163,52 @@ FIELD_DEFINITIONS = [
     },
     {
         "name": "Franchise-Portal URLs",
+        "type": "multilineText",
+    },
+    {
+        "name": "Schritt 3: Ansprechpartner",
+        "type": "singleSelect",
+        "options": {
+            "choices": [
+                {"name": "In Bearbeitung", "color": "yellowBright"},
+                {"name": "Erfolgreich", "color": "greenBright"},
+                {"name": "Mit Problemen", "color": "redBright"},
+            ]
+        },
+    },
+    {
+        "name": "Schritt 3: Datum",
+        "type": "dateTime",
+        "options": {
+            "dateFormat": {"name": "european", "format": "D/M/YYYY"},
+            "timeFormat": {"name": "24hour", "format": "HH:mm"},
+            "timeZone": "Europe/Berlin",
+        },
+    },
+    {
+        "name": "Schritt 3: Kommentar",
+        "type": "multilineText",
+    },
+    {"name": "AP 1 Mail", "type": "email"},
+    {"name": "AP 1 Tel.", "type": "phoneNumber"},
+    {"name": "AP 2 Mail", "type": "email"},
+    {"name": "AP 2 Tel.", "type": "phoneNumber"},
+    {"name": "AP 3 Mail", "type": "email"},
+    {"name": "AP 3 Tel.", "type": "phoneNumber"},
+    {"name": "AP 4 Mail", "type": "email"},
+    {"name": "AP 4 Tel.", "type": "phoneNumber"},
+    {"name": "AP 5 Mail", "type": "email"},
+    {"name": "AP 5 Tel.", "type": "phoneNumber"},
+    {
+        "name": "Weitere Ansprechpartner",
+        "type": "multilineText",
+    },
+    {
+        "name": "Weitere Telefonnummern",
+        "type": "multilineText",
+    },
+    {
+        "name": "Relevante Infos",
         "type": "multilineText",
     },
 ]
@@ -269,8 +328,11 @@ def claim_records_for_step(step_field: str,
         fields = _BASE_FIELDS + _ADDRESS_FIELDS + _STEP_FIELDS
 
     # Schritt 2 nur Records holen, die Schritt 1 bestanden haben
+    # Schritt 3 nur Records holen, die Schritt 2 bestanden haben
     if step_field == "Schritt 2: Impressum":
         formula = f"AND({{{step_field}}} = '', {{Schritt 1: Validierung}} = 'Erfolgreich')"
+    elif step_field == "Schritt 3: Ansprechpartner":
+        formula = f"AND({{{step_field}}} = '', {{Schritt 2: Impressum}} = 'Erfolgreich')"
     else:
         formula = f"{{{step_field}}} = ''"
 
@@ -479,6 +541,7 @@ def update_record_fields(record_id: str, fields: dict,
 STEP_DATE_FIELDS = {
     "Schritt 1: Validierung": "Schritt 1: Datum",
     "Schritt 2: Impressum": "Schritt 2: Datum",
+    "Schritt 3: Ansprechpartner": "Schritt 3: Datum",
 }
 
 
@@ -585,8 +648,10 @@ if __name__ == "__main__":
         print("  python airtable_helpers.py setup-fields         — Neue Felder anlegen")
         print("  python airtable_helpers.py step1 [limit]        — Records für Schritt 1")
         print("  python airtable_helpers.py step2 [limit]        — Records für Schritt 2")
+        print("  python airtable_helpers.py step3 [limit]        — Records für Schritt 3")
         print("  python airtable_helpers.py claim1 [count]       — Records für Schritt 1 claimen (default: 4)")
         print("  python airtable_helpers.py claim2 [count]       — Records für Schritt 2 claimen (default: 4)")
+        print("  python airtable_helpers.py claim3 [count]       — Records für Schritt 3 claimen (default: 4)")
         print("  python airtable_helpers.py write <id> '<json>' '<step_field>' '<status>'  — Record schreiben")
         sys.exit(1)
 
@@ -644,6 +709,21 @@ if __name__ == "__main__":
             _print_records(records)
         else:
             print("Keine offenen Records für Schritt 2 gefunden.")
+
+    elif cmd == "step3":
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        records = fetch_records_for_step("Schritt 3: Ansprechpartner", limit=limit)
+        print(f"{len(records)} Records brauchen Schritt 3 (Ansprechpartner):")
+        _print_records(records)
+
+    elif cmd == "claim3":
+        count = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        records = claim_records_for_step("Schritt 3: Ansprechpartner", count=count)
+        if records:
+            print(f"{len(records)} Records geclaimed für Schritt 3:")
+            _print_records(records)
+        else:
+            print("Keine offenen Records für Schritt 3 gefunden.")
 
     elif cmd == "write":
         # Usage: python3 airtable_helpers.py write <record_id> '<json_fields>' '<step_field>' '<status>'

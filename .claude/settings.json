@@ -1,4 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "Edit(/.claude/skills/find-contacts/**)",
+      "Bash(/Users/sebblesssing/Documents/GitHub/lead-scraping/.venv/bin/python3 -c \"import requests; print\\('ok'\\)\")",
+      "Bash(export PATH=\"$HOME/.pyenv/shims:$PATH\")",
+      "Read(//usr/local/**)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

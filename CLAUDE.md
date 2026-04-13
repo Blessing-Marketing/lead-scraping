@@ -33,6 +33,7 @@ Records durchlaufen mehrere Schritte, jeder mit eigenem Status-Feld:
 |---------|-------|-------------|
 | 1. Validierung | `/verify-franchise` | `Schritt 1: Validierung` |
 | 2. Impressum | `/scrape-impressum` | `Schritt 2: Impressum` |
+| 3. Ansprechpartner | `/find-contacts` | `Schritt 3: Ansprechpartner` |
 
 Status-Werte: leer (offen) → "In Bearbeitung" → "Erfolgreich" / "Mit Problemen"
 

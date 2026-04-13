@@ -247,6 +247,16 @@ def build_notes(fields):
                 parts.append(f"Links: {google_links}")
         notes.append("\n".join(parts))
 
+    # 5. Weitere Ansprechpartner (Overflow aus Schritt 3)
+    weitere_ap = _clean(fields.get("Weitere Ansprechpartner"))
+    if weitere_ap:
+        notes.append(f"**Weitere Ansprechpartner:**\n{weitere_ap}")
+
+    # 6. Relevante Infos (Vertriebs-Kontext aus Schritt 3)
+    relevante_infos = _clean(fields.get("Relevante Infos"))
+    if relevante_infos:
+        notes.append(f"**Relevante Infos:**\n{relevante_infos}")
+
     return notes
 
 
