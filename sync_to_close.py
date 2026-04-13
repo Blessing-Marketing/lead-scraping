@@ -89,10 +89,10 @@ class CloseClient:
         })
 
     def create_note(self, lead_id, note_html):
-        """Notiz zum Lead hinzufügen."""
+        """Notiz zum Lead hinzufügen (als HTML mit Rich-Text-Formatierung)."""
         return self._request("POST", "/activity/note/", json={
             "lead_id": lead_id,
-            "note": note_html,
+            "note_html": f"<body>{note_html}</body>",
         })
 
     def delete_lead(self, lead_id):
@@ -151,11 +151,9 @@ def build_contact(name, position, email, phone, phone_type="office"):
     clean_name = name.strip()
     clean_position = position.strip() if position else ""
 
+    contact["name"] = clean_name
     if clean_position:
-        contact["name"] = f"{clean_name} ({clean_position})"
         contact["title"] = clean_position
-    else:
-        contact["name"] = clean_name
 
     if email and email.strip():
         contact["emails"] = [{"email": email.strip(), "type": "office"}]
@@ -177,9 +175,26 @@ def _clean(value):
     return str(value).strip()
 
 
+def _esc(text):
+    """HTML-Sonderzeichen escapen."""
+    import html as _html
+    return _html.escape(str(text))
+
+
+def _text_to_p(text):
+    """Mehrzeiligen Text in <p>-Absätze konvertieren (Leerzeilen = neuer Absatz, einfache Zeilenumbrüche = <br/>)."""
+    paragraphs = text.split("\n\n")
+    parts = []
+    for para in paragraphs:
+        lines = para.strip()
+        if lines:
+            parts.append(f"<p>{_esc(lines).replace(chr(10), '<br/>')}</p>")
+    return "".join(parts)
+
+
 def build_notes(fields):
     """
-    Notiz-Texte aus Airtable-Fields generieren. Nur wenn echte Daten vorhanden.
+    Notiz-HTML aus Airtable-Fields generieren (Close.com Rich-Text via note_html).
 
     Reihenfolge in der Liste = Reihenfolge der Erstellung in Close.
     Close zeigt die zuletzt erstellte Notiz oben, daher:
@@ -194,18 +209,20 @@ def build_notes(fields):
     # 1. Dealfront-Link
     dealfront = _clean(fields.get("Dealfront"))
     if dealfront:
-        notes.append(f"**Dealfront Link:**\n{dealfront}")
+        notes.append(f"<p><b>Dealfront Link:</b></p><p>{_esc(dealfront)}</p>")
 
     # 2. LinkedIn
     linkedin_url = _clean(fields.get("AP 1 LinkedIn URL"))
     linkedin_status = _clean(fields.get("LinkedIn Status"))
     if linkedin_url or linkedin_status:
-        parts = ["**LinkedIn:**"]
+        parts = ["<p><b>LinkedIn:</b></p>"]
+        lines = []
         if linkedin_url:
-            parts.append(f"\nURL:\n{linkedin_url}")
+            lines.append(f"URL: {_esc(linkedin_url)}")
         if linkedin_status:
-            parts.append(f"\nStatus: {linkedin_status}")
-        notes.append("\n".join(parts))
+            lines.append(f"Status: {_esc(linkedin_status)}")
+        parts.append(f"<p>{'<br/>'.join(lines)}</p>")
+        notes.append("".join(parts))
 
     # 3. Stellenportal-Analyse
     url1 = _clean(fields.get("URL 1"))
@@ -216,19 +233,21 @@ def build_notes(fields):
     stellen_notizen = _clean(fields.get("Stellenausschreibungs Notizen"))
     stellen = _clean(fields.get("Stellenausschreibungen"))
     if any([url1, url2, url3, bewerbersoftware, stellen_notizen, stellen]):
-        parts = ["**Stellenportal Analyse:**"]
-        urls = "\n".join(u for u in [url1, url2, url3] if u)
+        parts = ["<p><b>Stellenportal Analyse:</b></p>"]
+        lines = []
+        urls = [u for u in [url1, url2, url3] if u]
         if urls:
-            parts.append(f"\nURL:\n{urls}")
+            lines.append("URL: " + ", ".join(_esc(u) for u in urls))
         if bewerbersoftware:
-            parts.append(f"\nBewerbersoftware:\n{bewerbersoftware}")
+            lines.append(f"Bewerbersoftware: {_esc(bewerbersoftware)}")
         if notiz:
-            parts.append(notiz)
+            lines.append(_esc(notiz))
         if stellen_notizen:
-            parts.append(f"\nNotizen:\n{stellen_notizen}")
+            lines.append(f"Notizen: {_esc(stellen_notizen)}")
         if stellen:
-            parts.append(f"\nArt der Stellenausschreibungen:\n{stellen}")
-        notes.append("\n".join(parts))
+            lines.append(f"Art der Stellenausschreibungen: {_esc(stellen)}")
+        parts.append(f"<p>{'<br/>'.join(lines)}</p>")
+        notes.append("".join(parts))
 
     # 4. Werbeanzeigen-Analyse
     meta_status = _clean(fields.get("Meta Ads Status"))
@@ -238,30 +257,30 @@ def build_notes(fields):
     google_notizen = _clean(fields.get("Google Ads Notizen"))
     google_links = _clean(fields.get("Google Ads Links"))
     if any([meta_status, meta_notizen, meta_links, google_status, google_notizen, google_links]):
-        parts = ["**Werbeanzeigen Analyse:**"]
+        parts = ["<p><b>Werbeanzeigen Analyse:</b></p>"]
         if any([meta_status, meta_notizen, meta_links]):
-            parts.append("\nMeta Ads:")
+            lines = ["Meta Ads:"]
             if meta_status:
-                parts.append(meta_status)
+                lines.append(_esc(meta_status))
             if meta_notizen:
-                parts.append(f"Notizen: {meta_notizen}")
+                lines.append(f"Notizen: {_esc(meta_notizen)}")
             if meta_links:
-                parts.append(f"Links: {meta_links}")
+                lines.append(f"Links: {_esc(meta_links)}")
+            parts.append(f"<p>{'<br/>'.join(lines)}</p>")
         if any([google_status, google_notizen, google_links]):
-            if any([meta_status, meta_notizen, meta_links]):
-                parts.append("\n____________________")
-            parts.append("\nGoogle Ads:")
+            lines = ["Google Ads:"]
             if google_status:
-                parts.append(google_status)
+                lines.append(_esc(google_status))
             if google_notizen:
-                parts.append(f"Notizen: {google_notizen}")
+                lines.append(f"Notizen: {_esc(google_notizen)}")
             if google_links:
-                parts.append(f"Links: {google_links}")
-        notes.append("\n".join(parts))
+                lines.append(f"Links: {_esc(google_links)}")
+            parts.append(f"<p>{'<br/>'.join(lines)}</p>")
+        notes.append("".join(parts))
 
     # ── Wichtige Notizen (werden oben in Close angezeigt) ──
 
-    # 5. Franchise Analyse (NEU – wird als zweite von oben angezeigt)
+    # 5. Franchise Analyse (wird als zweite von oben angezeigt)
     standorte = _clean(fields.get("Anzahl Standorte"))
     mitarbeiter = _clean(fields.get("Anzahl Mitarbeiter"))
     gruendung = _clean(fields.get("Gründungsdatum"))
@@ -272,30 +291,41 @@ def build_notes(fields):
     schritt3_kommentar = _clean(fields.get("Schritt 3: Kommentar"))
     if any([standorte, mitarbeiter, gruendung, portal_urls, zusammenfassung,
             franchise_score is not None, franchise_begruendung, schritt3_kommentar]):
-        parts = ["**Franchise Analyse:**"]
+        parts = ["<p><b>Franchise Analyse:</b></p>"]
+        # Kennzahlen
+        kz = []
         if standorte:
-            parts.append(f"\nAnzahl Standorte: {standorte}")
+            kz.append(f"Anzahl Standorte: {_esc(standorte)}")
         if mitarbeiter:
-            parts.append(f"Anzahl Mitarbeiter: {mitarbeiter}")
+            kz.append(f"Anzahl Mitarbeiter: {_esc(mitarbeiter)}")
         if gruendung:
-            parts.append(f"Gründungsdatum: {gruendung}")
-        if franchise_score is not None:
-            score_pct = f"{int(franchise_score * 100)}%" if isinstance(franchise_score, (int, float)) else str(franchise_score)
-            parts.append(f"\nFranchise-Score: {score_pct}")
-        if franchise_begruendung:
-            parts.append(f"Begründung: {franchise_begruendung}")
+            kz.append(f"Gründungsdatum: {_esc(gruendung)}")
+        if kz:
+            parts.append(f"<p>{'<br/>'.join(kz)}</p>")
+        # Franchise-Score
+        if franchise_score is not None or franchise_begruendung:
+            score_lines = []
+            if franchise_score is not None:
+                score_pct = f"{int(franchise_score * 100)}%" if isinstance(franchise_score, (int, float)) else str(franchise_score)
+                score_lines.append(f"Franchise-Score: {_esc(score_pct)}")
+            if franchise_begruendung:
+                score_lines.append(f"Begründung: {_esc(franchise_begruendung)}")
+            parts.append(f"<p>{'<br/>'.join(score_lines)}</p>")
+        # Zusammenfassung
         if zusammenfassung:
-            parts.append(f"\nZusammenfassung:\n{zusammenfassung}")
+            parts.append(f"<p><b>Zusammenfassung:</b><br/>{_esc(zusammenfassung).replace(chr(10), '<br/>')}</p>")
+        # Portal URLs
         if portal_urls:
-            parts.append(f"\nFranchise-Portal URLs:\n{portal_urls}")
+            parts.append(f"<p><b>Franchise-Portal URLs:</b><br/>{_esc(portal_urls).replace(chr(10), '<br/>')}</p>")
+        # Kommentar
         if schritt3_kommentar:
-            parts.append(f"\nKommentar Ansprechpartner-Recherche:\n{schritt3_kommentar}")
-        notes.append("\n".join(parts))
+            parts.append(f"<p>Kommentar Ansprechpartner-Recherche:<br/>{_esc(schritt3_kommentar).replace(chr(10), '<br/>')}</p>")
+        notes.append("".join(parts))
 
     # 6. Relevante Infos – zuletzt erstellt → wird ganz oben in Close angezeigt
     relevante_infos = _clean(fields.get("Relevante Infos"))
     if relevante_infos:
-        notes.append(f"**Relevante Infos:**\n{relevante_infos}")
+        notes.append(f"<p><b>Relevante Infos:</b></p>{_text_to_p(relevante_infos)}")
 
     return notes
 
@@ -485,6 +515,10 @@ def main():
         "--include-imported", action="store_true",
         help="Auch bereits importierte Records nochmal importieren",
     )
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Maximale Anzahl zu importierender Records",
+    )
     args = parser.parse_args()
 
     if not AIRTABLE_API_KEY or not CLOSE_API_KEY:
@@ -531,6 +565,9 @@ def main():
                 log.info(f"  Airtable Status → done, Close Lead ID → {lead_id}")
 
             created += 1
+            if args.limit and created >= args.limit:
+                log.info(f"  Limit erreicht ({args.limit} Records)")
+                break
             time.sleep(0.25)
 
         except requests.exceptions.HTTPError as e:
