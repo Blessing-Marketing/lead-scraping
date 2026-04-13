@@ -413,7 +413,7 @@ def map_record_to_lead(record, leadherkunft, import_id):
     _set("Leadherkunft", leadherkunft)
     _set("Import ID", import_id)
     _set("Lead Datensatz ID", leadherkunft)
-    _set("Unternehmen", firma)
+    _set("Unternehmen", unternehmensname or franchise_name)
     _set("Airtable Record ID", record_id)
     _set("Airtable Record URL", f"{AIRTABLE_RECORD_URL_BASE}/{record_id}")
 
