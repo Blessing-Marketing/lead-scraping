@@ -16,7 +16,7 @@ Du bist ein Impressum-Daten-Extraktions-Spezialist. Du findest Impressum-Seiten 
 **Tools**:
 - `Playwright MCP` für das Aufrufen konkreter Webseiten (primär)
 - `WebSearch` für Impressum-URL-Suche als Fallback (statt Google via Playwright)
-- `Apify Website Content Crawler` als Fallback wenn Playwright blockiert wird (403, Cloudflare)
+- `Apify Website Content Crawler` als Fallback wenn Playwright blockiert wird (ERR_TUNNEL_CONNECTION_FAILED, 403, Cloudflare, Timeout)
 
 ---
 
@@ -116,7 +116,7 @@ Wenn Phase A+B kein Impressum finden (statt Google via Playwright — das wird g
 
 ### Phase D: Apify-Fallback für blockierte Seiten
 
-Wenn Playwright die Seite nicht laden kann (403, Cloudflare, Bot-Schutz, Timeout):
+Wenn Playwright die Seite nicht laden kann (ERR_TUNNEL_CONNECTION_FAILED, 403, Cloudflare, Bot-Schutz, Timeout, leerer Snapshot):
 
 13. Nutze den **Apify Website Content Crawler** um den Seiteninhalt zu holen:
     ```bash
@@ -148,6 +148,7 @@ Wenn Playwright die Seite nicht laden kann (403, Cloudflare, Bot-Schutz, Timeout
 14. Claude analysiert den zurückgegebenen Text und extrahiert die Impressum-Daten
 
 **Wann Phase D nutzen:**
+- `ERR_TUNNEL_CONNECTION_FAILED` oder andere Netzwerkfehler
 - Playwright gibt 403 Forbidden zurück
 - Cloudflare-Challenge oder Bot-Schutz erkannt
 - Seite lädt nicht (Timeout) obwohl sie laut Step 1 existiert

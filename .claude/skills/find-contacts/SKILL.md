@@ -222,7 +222,12 @@ else:
 
 #### E4: Apify Website Content Crawler (für Kontaktseiten)
 
-Wenn Playwright die Kontaktseite nicht laden kann (403, Cloudflare), nutze den Apify Website Content Crawler um den Text der Kontakt-/Team-Seite zu holen:
+Wenn Playwright eine Seite nicht laden kann, nutze den Apify Website Content Crawler um den Text zu holen. **Trigger-Bedingungen** (eine davon reicht):
+- `ERR_TUNNEL_CONNECTION_FAILED` oder andere Netzwerkfehler
+- HTTP 403 Forbidden
+- Cloudflare-Challenge oder Bot-Schutz erkannt
+- Timeout / Seite lädt nicht
+- Playwright-Snapshot ist leer trotz erfolgreicher Navigation
 
 ```bash
 python3 -c "
@@ -355,7 +360,7 @@ Stichpunkte mit `•`, kurz und prägnant. Jeder Punkt maximal 1-2 Sätze. **Sor
 Für Phasen B-D (Personensuche) gilt dieselbe Fallback-Logik:
 
 - **WebSearch** fehlgeschlagen → **Apify Google SERP Scraper** (siehe Code-Beispiel in Phase E3)
-- **Playwright** blockiert (403, Cloudflare) → **Apify Website Content Crawler** (siehe Code-Beispiel in Phase E4)
+- **Playwright** blockiert (ERR_TUNNEL_CONNECTION_FAILED, 403, Cloudflare, Timeout, leerer Snapshot) → **Apify Website Content Crawler** (siehe Code-Beispiel in Phase E4)
 
 Die konkreten Apify-Aufrufe sind in Phase E dokumentiert und können für alle Phasen wiederverwendet werden.
 
