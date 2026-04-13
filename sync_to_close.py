@@ -15,6 +15,7 @@ import time
 import json
 import logging
 import argparse
+from datetime import date
 import requests
 from dotenv import load_dotenv
 
@@ -412,7 +413,7 @@ def map_record_to_lead(record, leadherkunft, import_id):
     _set("Branche", f"Franchise - {branche}" if branche else "Franchise")
     _set("Leadherkunft", leadherkunft)
     _set("Import ID", import_id)
-    _set("Lead Datensatz ID", leadherkunft)
+    _set("Lead Datensatz ID", import_id)
     _set("Unternehmen", unternehmensname or franchise_name)
     _set("Airtable Record ID", record_id)
     _set("Airtable Record URL", f"{AIRTABLE_RECORD_URL_BASE}/{record_id}")
@@ -463,13 +464,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="Leads aus Airtable nach Close.com importieren"
     )
+    today_tag = f"Franchise_Airtable_{date.today().strftime('%d%m%Y')}"
     parser.add_argument(
-        "--leadherkunft", default="Franchise_03022026",
-        help="Wert für das Close-Feld 'Leadherkunft' (default: Franchise_03022026)",
+        "--leadherkunft", default=today_tag,
+        help=f"Wert für das Close-Feld 'Leadherkunft' (default: {today_tag})",
     )
     parser.add_argument(
-        "--import-id", default="Franchise_03022026",
-        help="Wert für das Close-Feld 'Import ID' (default: Franchise_03022026)",
+        "--import-id", default=today_tag,
+        help=f"Wert für das Close-Feld 'Import ID' (default: {today_tag})",
     )
     parser.add_argument(
         "--dry-run", action="store_true",
