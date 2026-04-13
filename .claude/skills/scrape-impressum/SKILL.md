@@ -47,8 +47,9 @@ Argument beginnt mit `rec`: `/scrape-impressum recXXXXXXXXXXXXXX`
    python3 airtable_helpers.py write RECORD_ID '{}' 'Schritt 2: Impressum' 'In Bearbeitung'
    ```
 5. Finde die Impressum-Seite und extrahiere die Daten
-6. Zeige dem User: "Diese Felder würden geschrieben:" (nur leere Felder mit neuen Daten)
-7. Nach Bestätigung: Schreibe per `airtable_helpers.py` + Status "Erfolgreich" setzen
+6. **Einzelmodus**: Ergebnisse dem User zeigen, nach Bestätigung schreiben
+   **Batch-Modus**: Daten direkt schreiben, keine Bestätigung nötig
+7. Schreibe per `airtable_helpers.py write` + Status "Erfolgreich" setzen
 8. Bei Fehler (Website nicht erreichbar etc.): Status "Mit Problemen" setzen
 
 ### Modus 3: Batch
@@ -63,9 +64,8 @@ Argument ist `batch`: `/scrape-impressum batch [limit]`
    ```
    Das holt bis zu 4 offene Records UND setzt deren Status sofort auf "In Bearbeitung".
 2. Falls **keine Records** zurückkommen → fertig, alle Records verarbeitet. Gesamtzusammenfassung zeigen.
-3. **Wichtig**: Nur Records verarbeiten wo `Schritt 1: Validierung` = "Erfolgreich".
-   Records mit `Schritt 1: Validierung` = "Mit Problemen" oder leer → Status "Mit Problemen" setzen und überspringen.
-4. Jeden geclaimten Record einzeln abarbeiten (Modus 2-Logik).
+3. `claim2` holt automatisch nur Records wo Schritt 1 = "Erfolgreich" (Filter in der Query).
+4. Jeden geclaimten Record abarbeiten: Impressum finden, Daten extrahieren, direkt nach Airtable schreiben.
 5. **Zurück zu Schritt 1** — nächsten Batch claimen.
 
 **Regeln:**
@@ -294,13 +294,12 @@ else:
 
 ## Sicherheitsregeln
 
-1. **Nie bestehende Daten überschreiben** — `build_update_payload()` prüft das automatisch
-2. **Vor jedem Schreibvorgang dem User zeigen**, welche Felder geschrieben werden
-3. **Keine DELETE-Requests** an Airtable — siehe CLAUDE.md
-4. **API Keys nie im Output zeigen** — kommen aus `.env`
-5. **Playwright nur für öffentliche Webseiten** — nie für Logins oder Admin-Panels
-6. **WebSearch primär, Apify nur als Fallback** — spart Credits
-7. **Bei Unsicherheit: User fragen** — lieber einmal zu viel als falsche Daten schreiben
+1. **Keine DELETE-Requests** an Airtable — siehe CLAUDE.md
+2. **API Keys nie im Output zeigen** — kommen aus `.env`
+3. **Playwright nur für öffentliche Webseiten** — nie für Logins oder Admin-Panels
+4. **WebSearch primär, Apify nur als Fallback** — spart Credits
+5. **Batch-Modus**: Daten direkt schreiben, keine Bestätigungen nötig
+6. **Einzelmodus**: Ergebnisse dem User zeigen, nach Bestätigung schreiben
 
 ## Airtable-Konfiguration
 

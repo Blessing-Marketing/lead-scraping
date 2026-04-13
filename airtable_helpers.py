@@ -268,10 +268,16 @@ def claim_records_for_step(step_field: str,
     if fields is None:
         fields = _BASE_FIELDS + _ADDRESS_FIELDS + _STEP_FIELDS
 
+    # Schritt 2 nur Records holen, die Schritt 1 bestanden haben
+    if step_field == "Schritt 2: Impressum":
+        formula = f"AND({{{step_field}}} = '', {{Schritt 1: Validierung}} = 'Erfolgreich')"
+    else:
+        formula = f"{{{step_field}}} = ''"
+
     params = {
         "view": view_id,
         "pageSize": count,
-        "filterByFormula": f"{{{step_field}}} = ''",
+        "filterByFormula": formula,
         "fields[]": fields,
     }
 
