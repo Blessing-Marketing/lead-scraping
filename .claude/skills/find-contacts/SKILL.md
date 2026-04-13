@@ -395,13 +395,38 @@ Für jeden neuen Kontakt in AP 1-5:
 
 ### Format "Weitere Ansprechpartner"
 
-Overflow-Kontakte im strukturierten Format, ein Kontakt pro Zeile:
+Overflow-Kontakte werden als **JSON-Array** gespeichert.
 
+**Schema** — jeder Eintrag hat exakt diese 5 Felder:
+
+```json
+[
+  {
+    "name": "Anna Braun",
+    "position": "Head of Recruiting",
+    "email": "a.braun@firma.de",
+    "telefon": null,
+    "quelle": "linkedin.com/in/anna-braun"
+  },
+  {
+    "name": "Peter Koch",
+    "position": "Regionalleiter Franchise",
+    "email": null,
+    "telefon": "+49 123 456789",
+    "quelle": "firma.de/team"
+  }
+]
 ```
-Name | Position | E-Mail | Telefon | Quelle
-Anna Braun | Head of Recruiting | a.braun@firma.de | | linkedin.com/in/anna-braun
-Peter Koch | Regionalleiter Franchise | | +49 123 456 | firma.de/team
-```
+
+**Feld-Definitionen:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `name` | string | ja | Vollständiger Name (inkl. Titel wie Dr., Prof., Dipl. Ing.) |
+| `position` | string | ja | Jobtitel / Rolle |
+| `email` | string/null | ja | E-Mail-Adresse falls bekannt, sonst `null` |
+| `telefon` | string/null | ja | Telefonnummer im Format `+49 XXXX XXXXXXX` falls bekannt, sonst `null` |
+| `quelle` | string | ja | Woher die Info stammt (z.B. "Website Team-Seite", "LinkedIn", "Google") |
 
 ### Format "Weitere Telefonnummern"
 
@@ -472,8 +497,8 @@ Neue Kontakte (Schritt 3):
   AP 4: Lisa Schmidt (Expansionsleiterin) | | Quelle: LinkedIn
   AP 5: Tom Weber (Marketing-Leiter) | t.weber@company.de | +49 123 456 | Quelle: Website Kontakt
 
-Weitere Ansprechpartner:
-  Anna Braun | Head of Recruiting | | | linkedin.com/in/anna-braun
+Weitere Ansprechpartner (JSON):
+  [{"name": "Anna Braun", "position": "Head of Recruiting", "email": null, "telefon": null, "quelle": "linkedin.com/in/anna-braun"}]
 
 Weitere Telefonnummern (JSON):
   [{"nummer": "+49 30 123456-10", "typ": "abteilung", "bezeichnung": "Franchise-Abteilung", "email": "franchise@firma.de"},
@@ -502,7 +527,7 @@ Airtable-Update:
   AP 5  Position    → Marketing-Leiter
   AP 5 Mail         → t.weber@company.de
   AP 5 Tel.         → +49 123 456
-  Weitere Ansprechpartner → "Anna Braun | Head of Recruiting | | | linkedin.com/in/anna-braun"
+  Weitere Ansprechpartner → JSON-Array (siehe Format-Definition)
   Weitere Telefonnummern → JSON-Array (siehe Format-Definition)
   Relevante Infos → "• Gehört zu Neighbourly Brands DACH...\n• Sucht aktiv neue Franchise-Partner..."
   Schritt 3: Kommentar → "3 neue Kontakte, 3 Telefonnummern gefunden (Website + LinkedIn)."
@@ -515,7 +540,7 @@ Airtable-Update:
 Nutze den `write`-Befehl — ein einzelner Aufruf für Felder + Status:
 
 ```bash
-python3 airtable_helpers.py write RECORD_ID '{"AP 3": "Hans Meier", "AP 3 Position": "Franchise-Leiter", "AP 3 Mail": "hans.meier@company.de", "AP 4": "Lisa Schmidt", "AP 4 Position": "Expansionsleiterin", "AP 5": "Tom Weber", "AP 5  Position": "Marketing-Leiter", "AP 5 Mail": "t.weber@company.de", "AP 5 Tel.": "+49 123 456", "Weitere Ansprechpartner": "Anna Braun | Head of Recruiting | | | linkedin.com/in/anna-braun", "Weitere Telefonnummern": "[{\"nummer\":\"+49 30 123456-10\",\"typ\":\"abteilung\",\"bezeichnung\":\"Franchise-Abteilung\",\"email\":\"franchise@firma.de\"},{\"nummer\":\"+49 30 123456-20\",\"typ\":\"abteilung\",\"bezeichnung\":\"Marketing\",\"email\":null},{\"nummer\":\"+49 800 1234567\",\"typ\":\"hotline\",\"bezeichnung\":\"Franchise-Partner-Hotline\",\"email\":null}]", "Relevante Infos": "• Gehört zu Neighbourly Brands DACH (gleiche Gruppe wie Locatec)\n• Sucht aktiv neue Franchise-Partner, 2 neue Starts in 2026\n• Kein dediziertes Marketing-Team erkennbar", "Schritt 3: Kommentar": "3 neue Kontakte, 3 Telefonnummern gefunden (Website + LinkedIn)."}' 'Schritt 3: Ansprechpartner' 'Erfolgreich'
+python3 airtable_helpers.py write RECORD_ID '{"AP 3": "Hans Meier", "AP 3 Position": "Franchise-Leiter", "AP 3 Mail": "hans.meier@company.de", "AP 4": "Lisa Schmidt", "AP 4 Position": "Expansionsleiterin", "AP 5": "Tom Weber", "AP 5  Position": "Marketing-Leiter", "AP 5 Mail": "t.weber@company.de", "AP 5 Tel.": "+49 123 456", "Weitere Ansprechpartner": "[{\"name\":\"Anna Braun\",\"position\":\"Head of Recruiting\",\"email\":null,\"telefon\":null,\"quelle\":\"linkedin.com/in/anna-braun\"}]", "Weitere Telefonnummern": "[{\"nummer\":\"+49 30 123456-10\",\"typ\":\"abteilung\",\"bezeichnung\":\"Franchise-Abteilung\",\"email\":\"franchise@firma.de\"},{\"nummer\":\"+49 30 123456-20\",\"typ\":\"abteilung\",\"bezeichnung\":\"Marketing\",\"email\":null},{\"nummer\":\"+49 800 1234567\",\"typ\":\"hotline\",\"bezeichnung\":\"Franchise-Partner-Hotline\",\"email\":null}]", "Relevante Infos": "• Gehört zu Neighbourly Brands DACH (gleiche Gruppe wie Locatec)\n• Sucht aktiv neue Franchise-Partner, 2 neue Starts in 2026\n• Kein dediziertes Marketing-Team erkennbar", "Schritt 3: Kommentar": "3 neue Kontakte, 3 Telefonnummern gefunden (Website + LinkedIn)."}' 'Schritt 3: Ansprechpartner' 'Erfolgreich'
 ```
 
 Bei Fehler:
