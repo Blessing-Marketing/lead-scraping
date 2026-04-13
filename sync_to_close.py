@@ -12,6 +12,7 @@ Usage:
 import os
 import sys
 import time
+import json
 import logging
 import argparse
 import requests
@@ -176,8 +177,18 @@ def _clean(value):
 
 
 def build_notes(fields):
-    """Notiz-Texte aus Airtable-Fields generieren. Nur wenn echte Daten vorhanden."""
+    """
+    Notiz-Texte aus Airtable-Fields generieren. Nur wenn echte Daten vorhanden.
+
+    Reihenfolge in der Liste = Reihenfolge der Erstellung in Close.
+    Close zeigt die zuletzt erstellte Notiz oben, daher:
+    - Unwichtigere Notizen zuerst (werden unten angezeigt)
+    - Franchise Analyse vorletzte (wird als zweite von oben angezeigt)
+    - Relevante Infos zuletzt (wird ganz oben angezeigt)
+    """
     notes = []
+
+    # ── Weniger wichtige Notizen (werden unten in Close angezeigt) ──
 
     # 1. Dealfront-Link
     dealfront = _clean(fields.get("Dealfront"))
@@ -247,12 +258,40 @@ def build_notes(fields):
                 parts.append(f"Links: {google_links}")
         notes.append("\n".join(parts))
 
-    # 5. Weitere Ansprechpartner (Overflow aus Schritt 3)
-    weitere_ap = _clean(fields.get("Weitere Ansprechpartner"))
-    if weitere_ap:
-        notes.append(f"**Weitere Ansprechpartner:**\n{weitere_ap}")
+    # ── Wichtige Notizen (werden oben in Close angezeigt) ──
 
-    # 6. Relevante Infos (Vertriebs-Kontext aus Schritt 3)
+    # 5. Franchise Analyse (NEU – wird als zweite von oben angezeigt)
+    standorte = _clean(fields.get("Anzahl Standorte"))
+    mitarbeiter = _clean(fields.get("Anzahl Mitarbeiter"))
+    gruendung = _clean(fields.get("Gründungsdatum"))
+    portal_urls = _clean(fields.get("Franchise-Portal URLs"))
+    zusammenfassung = _clean(fields.get("Zusammenfassung (lang)"))
+    franchise_score = fields.get("Ist es ein Franchise-System?")
+    franchise_begruendung = _clean(fields.get("Ist es ein Franchise-System? Begründung"))
+    schritt3_kommentar = _clean(fields.get("Schritt 3: Kommentar"))
+    if any([standorte, mitarbeiter, gruendung, portal_urls, zusammenfassung,
+            franchise_score is not None, franchise_begruendung, schritt3_kommentar]):
+        parts = ["**Franchise Analyse:**"]
+        if standorte:
+            parts.append(f"\nAnzahl Standorte: {standorte}")
+        if mitarbeiter:
+            parts.append(f"Anzahl Mitarbeiter: {mitarbeiter}")
+        if gruendung:
+            parts.append(f"Gründungsdatum: {gruendung}")
+        if franchise_score is not None:
+            score_pct = f"{int(franchise_score * 100)}%" if isinstance(franchise_score, (int, float)) else str(franchise_score)
+            parts.append(f"\nFranchise-Score: {score_pct}")
+        if franchise_begruendung:
+            parts.append(f"Begründung: {franchise_begruendung}")
+        if zusammenfassung:
+            parts.append(f"\nZusammenfassung:\n{zusammenfassung}")
+        if portal_urls:
+            parts.append(f"\nFranchise-Portal URLs:\n{portal_urls}")
+        if schritt3_kommentar:
+            parts.append(f"\nKommentar Ansprechpartner-Recherche:\n{schritt3_kommentar}")
+        notes.append("\n".join(parts))
+
+    # 6. Relevante Infos – zuletzt erstellt → wird ganz oben in Close angezeigt
     relevante_infos = _clean(fields.get("Relevante Infos"))
     if relevante_infos:
         notes.append(f"**Relevante Infos:**\n{relevante_infos}")
@@ -262,11 +301,27 @@ def build_notes(fields):
 
 # ── Lead Mapping ─────────────────────────────────────────────────────────────
 
+def _parse_json_field(value):
+    """JSON-Feld sicher parsen. Gibt [] zurück bei leerem/ungültigem JSON."""
+    if not value or not str(value).strip():
+        return []
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def map_record_to_lead(record, leadherkunft, import_id):
     """Airtable Record → Close Lead Payload (mit hardcoded Custom Field IDs)."""
     f = record.get("fields", {})
     record_id = record["id"]
-    firma = (f.get("NAME DES FRANCHISE-UNTERNEHMENS") or "").strip()
+    franchise_name = (f.get("NAME DES FRANCHISE-UNTERNEHMENS") or "").strip()
+    unternehmensname = (f.get("Unternehmensname") or "").strip()
+    if unternehmensname and unternehmensname.lower() != franchise_name.lower():
+        firma = f"{franchise_name} ({unternehmensname})"
+    else:
+        firma = franchise_name
 
     # ── Contacts ──
     contacts = []
@@ -283,6 +338,24 @@ def map_record_to_lead(record, leadherkunft, import_id):
         c = build_contact(
             f.get(f"AP {i}"), f.get(pos_key),
             f.get(f"AP {i} Mail"), f.get(f"AP {i} Tel."),
+        )
+        if c:
+            contacts.append(c)
+
+    # Weitere Ansprechpartner (JSON → Close-Kontakte)
+    for ap in _parse_json_field(f.get("Weitere Ansprechpartner")):
+        c = build_contact(
+            ap.get("name"), ap.get("position"),
+            ap.get("email"), ap.get("telefon"),
+        )
+        if c:
+            contacts.append(c)
+
+    # Weitere Telefonnummern (JSON → Close-Kontakte)
+    for tel in _parse_json_field(f.get("Weitere Telefonnummern")):
+        c = build_contact(
+            tel.get("bezeichnung"), None,
+            tel.get("email"), tel.get("nummer"),
         )
         if c:
             contacts.append(c)
@@ -304,6 +377,11 @@ def map_record_to_lead(record, leadherkunft, import_id):
         "contacts": contacts,
         "status_id": LEAD_STATUS_ID,
     }
+
+    # Description (Zusammenfassung kurz)
+    beschreibung = (f.get("Zusammenfassung (kurz)") or "").strip()
+    if beschreibung:
+        lead["description"] = beschreibung
 
     # Webseite
     url = (f.get("Webseite (https-Standardisiert)") or "").strip()
@@ -353,7 +431,12 @@ def import_single_record(close, record, leadherkunft, import_id):
     Gibt die Close Lead-ID zurück.
     """
     fields = record.get("fields", {})
-    firma = (fields.get("NAME DES FRANCHISE-UNTERNEHMENS") or "Unbekannt").strip()
+    franchise_name = (fields.get("NAME DES FRANCHISE-UNTERNEHMENS") or "Unbekannt").strip()
+    unternehmensname = (fields.get("Unternehmensname") or "").strip()
+    if unternehmensname and unternehmensname.lower() != franchise_name.lower():
+        firma = f"{franchise_name} ({unternehmensname})"
+    else:
+        firma = franchise_name
 
     # 1. Lead erstellen
     lead_data = map_record_to_lead(record, leadherkunft, import_id)
