@@ -6,7 +6,8 @@
       "Bash(export PATH=\"$HOME/.pyenv/shims:$PATH\")",
       "Read(//usr/local/**)",
       "Edit(/.claude/skills/scrape-impressum/**)",
-      "Bash(python sync_to_close.py --dry-run)"
+      "Bash(python sync_to_close.py --dry-run)",
+      "Edit(/.claude/skills/find-portal-contacts/**)"
     ]
   },
   "hooks": {

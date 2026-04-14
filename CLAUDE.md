@@ -34,8 +34,11 @@ Records durchlaufen mehrere Schritte, jeder mit eigenem Status-Feld:
 | 1. Validierung | `/verify-franchise` | `Schritt 1: Validierung` |
 | 2. Impressum | `/scrape-impressum` | `Schritt 2: Impressum` |
 | 3. Ansprechpartner | `/find-contacts` | `Schritt 3: Ansprechpartner` |
+| 4. Portal-Kontakte | `/find-portal-contacts` | `Schritt 4: Portal-Kontakte` |
 
 Status-Werte: leer (offen) → "In Bearbeitung" → "Erfolgreich" / "Mit Problemen"
+
+Schritt 4 schreibt die in Franchise-Portalen gelisteten Ansprechpartner als JSON in `Franchise Portal Ansprechpartner` und wird **nicht** nach Close gesynct. Voraussetzung: `Schritt 1: Validierung = Erfolgreich`.
 
 ### Tools & Infrastruktur
 

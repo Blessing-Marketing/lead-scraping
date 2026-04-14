@@ -84,6 +84,9 @@ _STEP_FIELDS = [
     "Schritt 3: Ansprechpartner",
     "Schritt 3: Datum",
     "Schritt 3: Kommentar",
+    "Schritt 4: Portal-Kontakte",
+    "Schritt 4: Datum",
+    "Franchise Portal Ansprechpartner",
 ]
 
 # Felder, die per setup-fields angelegt werden sollen
@@ -187,6 +190,30 @@ FIELD_DEFINITIONS = [
     },
     {
         "name": "Schritt 3: Kommentar",
+        "type": "multilineText",
+    },
+    {
+        "name": "Schritt 4: Portal-Kontakte",
+        "type": "singleSelect",
+        "options": {
+            "choices": [
+                {"name": "In Bearbeitung", "color": "yellowBright"},
+                {"name": "Erfolgreich", "color": "greenBright"},
+                {"name": "Mit Problemen", "color": "redBright"},
+            ]
+        },
+    },
+    {
+        "name": "Schritt 4: Datum",
+        "type": "dateTime",
+        "options": {
+            "dateFormat": {"name": "european", "format": "D/M/YYYY"},
+            "timeFormat": {"name": "24hour", "format": "HH:mm"},
+            "timeZone": "Europe/Berlin",
+        },
+    },
+    {
+        "name": "Franchise Portal Ansprechpartner",
         "type": "multilineText",
     },
     {"name": "AP 1 Mail", "type": "email"},
@@ -333,6 +360,8 @@ def claim_records_for_step(step_field: str,
         formula = f"AND({{{step_field}}} = '', {{Schritt 1: Validierung}} = 'Erfolgreich')"
     elif step_field == "Schritt 3: Ansprechpartner":
         formula = f"AND({{{step_field}}} = '', {{Schritt 2: Impressum}} = 'Erfolgreich')"
+    elif step_field == "Schritt 4: Portal-Kontakte":
+        formula = f"AND({{{step_field}}} = '', {{Schritt 1: Validierung}} = 'Erfolgreich')"
     else:
         formula = f"{{{step_field}}} = ''"
 
@@ -542,6 +571,7 @@ STEP_DATE_FIELDS = {
     "Schritt 1: Validierung": "Schritt 1: Datum",
     "Schritt 2: Impressum": "Schritt 2: Datum",
     "Schritt 3: Ansprechpartner": "Schritt 3: Datum",
+    "Schritt 4: Portal-Kontakte": "Schritt 4: Datum",
 }
 
 
@@ -649,9 +679,11 @@ if __name__ == "__main__":
         print("  python airtable_helpers.py step1 [limit]        — Records für Schritt 1")
         print("  python airtable_helpers.py step2 [limit]        — Records für Schritt 2")
         print("  python airtable_helpers.py step3 [limit]        — Records für Schritt 3")
+        print("  python airtable_helpers.py step4 [limit]        — Records für Schritt 4")
         print("  python airtable_helpers.py claim1 [count]       — Records für Schritt 1 claimen (default: 4)")
         print("  python airtable_helpers.py claim2 [count]       — Records für Schritt 2 claimen (default: 4)")
         print("  python airtable_helpers.py claim3 [count]       — Records für Schritt 3 claimen (default: 4)")
+        print("  python airtable_helpers.py claim4 [count]       — Records für Schritt 4 claimen (default: 4)")
         print("  python airtable_helpers.py write <id> '<json>' '<step_field>' '<status>'  — Record schreiben")
         sys.exit(1)
 
@@ -724,6 +756,21 @@ if __name__ == "__main__":
             _print_records(records)
         else:
             print("Keine offenen Records für Schritt 3 gefunden.")
+
+    elif cmd == "step4":
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        records = fetch_records_for_step("Schritt 4: Portal-Kontakte", limit=limit)
+        print(f"{len(records)} Records brauchen Schritt 4 (Portal-Kontakte):")
+        _print_records(records)
+
+    elif cmd == "claim4":
+        count = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        records = claim_records_for_step("Schritt 4: Portal-Kontakte", count=count)
+        if records:
+            print(f"{len(records)} Records geclaimed für Schritt 4:")
+            _print_records(records)
+        else:
+            print("Keine offenen Records für Schritt 4 gefunden.")
 
     elif cmd == "write":
         # Usage: python3 airtable_helpers.py write <record_id> '<json_fields>' '<step_field>' '<status>'
