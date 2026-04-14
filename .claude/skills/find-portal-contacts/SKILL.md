@@ -138,34 +138,7 @@ Wenn dieselbe Person auf mehreren Portalen auftaucht (Name-Match, fuzzy — glei
 #### D1: Apify Google SERP Scraper (wenn WebSearch fehlschlägt)
 
 ```bash
-python3 -c "
-import os, requests, json
-from dotenv import load_dotenv
-load_dotenv()
-
-token = os.getenv('apify_api_key')
-resp = requests.post(
-    'https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items',
-    params={'token': token},
-    json={
-        'queries': '\"FIRMENNAME\" site:franchise-portal.de OR site:franchisedirekt.com OR site:franchiseCHECK.de OR site:franchiseERFOLGE.de OR site:franchiseverband.com',
-        'maxPagesPerQuery': 1,
-        'resultsPerPage': 10,
-        'languageCode': 'de',
-        'countryCode': 'de',
-    },
-    timeout=120,
-)
-if resp.status_code in (200, 201):
-    for item in resp.json():
-        for r in item.get('organicResults', [])[:10]:
-            print(r.get('title', '?'))
-            print(r.get('url', '?'))
-            print(r.get('description', '')[:200])
-            print()
-else:
-    print(f'Fehler: {resp.status_code} {resp.text[:300]}')
-"
+python3 apify_serp.py '"FIRMENNAME" site:franchise-portal.de OR site:franchisedirekt.com OR site:franchiseCHECK.de OR site:franchiseERFOLGE.de OR site:franchiseverband.com'
 ```
 
 #### D2: Apify Website Content Crawler (wenn Playwright blockiert)
@@ -173,30 +146,7 @@ else:
 **Trigger-Bedingungen** (eine reicht): `ERR_TUNNEL_CONNECTION_FAILED`, HTTP 403, Cloudflare-Challenge, Timeout, leerer Snapshot.
 
 ```bash
-python3 -c "
-import os, requests, json
-from dotenv import load_dotenv
-load_dotenv()
-
-token = os.getenv('apify_api_key')
-resp = requests.post(
-    'https://api.apify.com/v2/acts/apify~website-content-crawler/run-sync-get-dataset-items',
-    params={'token': token},
-    json={
-        'startUrls': [{'url': 'PORTAL_DETAIL_URL'}],
-        'maxCrawlPages': 2,
-        'crawlerType': 'cheerio',
-    },
-    timeout=120,
-)
-if resp.status_code in (200, 201):
-    for item in resp.json():
-        print('URL:', item.get('url', '?'))
-        print('Text:', item.get('text', '')[:5000])
-        print('---')
-else:
-    print(f'Fehler: {resp.status_code} {resp.text[:300]}')
-"
+python3 apify_crawl.py 'PORTAL_DETAIL_URL'
 ```
 
 ---
@@ -289,6 +239,12 @@ Der `write`-Befehl setzt automatisch auch `Schritt 4: Datum` über `set_step_sta
 - Portale geladen, aber **null** Personen extrahierbar (Feld bleibt `"[]"`)
 
 ---
+
+## Bash-Regeln (für autonomen Lauf wichtig)
+
+- **Niemals** `for`/`while`-Loops, `&&`-Ketten oder mehrzeilige Heredocs in Bash-Calls — solche zusammengesetzten Commands können nicht per Allow-Rule whitelisted werden und triggern jedes Mal eine Bestätigungs-Abfrage.
+- **Niemals** `python3 -c "..."` mit Inline-Code — stattdessen die Helper-Skripte (`apify_serp.py`, `apify_crawl.py`, `airtable_helpers.py`) nutzen.
+- Mehrere ähnliche Operationen → mehrere **parallele** Single-Tool-Calls in einer Message (z.B. 4× `python3 airtable_helpers.py get recXXX` parallel statt einer `for`-Schleife).
 
 ## Sicherheitsregeln
 

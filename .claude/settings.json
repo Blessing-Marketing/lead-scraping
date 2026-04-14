@@ -7,7 +7,17 @@
       "Read(//usr/local/**)",
       "Edit(/.claude/skills/scrape-impressum/**)",
       "Bash(python sync_to_close.py --dry-run)",
-      "Edit(/.claude/skills/find-portal-contacts/**)"
+      "Edit(/.claude/skills/find-portal-contacts/**)",
+      "Read(//Applications/GitHub Desktop.app/Contents/Resources/app/git/libexec/git-core/**)",
+      "Bash(python3 airtable_helpers.py get:*)",
+      "Bash(python3 airtable_helpers.py write:*)",
+      "Bash(python3 airtable_helpers.py claim4:*)",
+      "Bash(python3 airtable_helpers.py setup-fields:*)",
+      "Bash(python3 apify_serp.py:*)",
+      "Bash(python3 apify_crawl.py:*)",
+      "WebSearch",
+      "WebFetch",
+      "mcp__playwright__*"
     ]
   },
   "hooks": {
