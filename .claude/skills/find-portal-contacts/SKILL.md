@@ -23,14 +23,18 @@ Du bist ein Portal-Recherche-Spezialist. Für ein Franchise-Unternehmen besuchst
 
 ---
 
-## Relevante Portale
+## Relevante Portale (nach Ertrag priorisiert)
 
-- **franchise-portal.de** / **franchiseportal.de**
-- **franchisedirekt.com**
-- **FranchiseCHECK.de**
-- **franchiseERFOLGE.de**
-- **franchiseverband.com** (Deutscher Franchiseverband)
-- **fuer-gruender.de/franchiseboerse**
+Aus ~170 verarbeiteten Records im April 2026 hat sich folgende Rangfolge ergeben — **immer in dieser Reihenfolge prüfen**:
+
+1. **franchiseverband.com** — **beste Quelle**. Bei ~60–70 % der Detailseiten steht ein strukturierter `ANSPRECHPARTNER`-Block mit **Name + Telefon/Mobile + direkter E-Mail**. Slug-Konvention: `https://www.franchiseverband.com/systeme-finden/franchisesystem-detail-ansicht/{slug}`. Slugs nicht raten — immer per WebSearch `"{Firma}" site:franchiseverband.com` bestätigen, viele geratene Slugs 404en.
+2. **franchiseportal.de** / **franchise-portal.de** — bei **Premium-Listings** steht oben ein Begleitungs-Block: *"Guten Tag, mein Name ist {Name} und ich vertrete {Firma}. Als dein Ansprechpartner..."*. Nur Name (keine Tel/E-Mail) — das ist trotzdem wertvoll. Bei Standard-Listings fehlt der Block komplett. Nicht überspringen!
+3. **franchisedirekt.com** — sehr selten echte Namen, oft "Profil nicht mehr aktiv" (404). Kurzer Blick reicht.
+4. **FranchiseCHECK.de** — meist nur "{Firma} Team" ohne Personenname, gelegentlich echte Kontakte.
+5. **franchiseERFOLGE.de** — selten brauchbar.
+6. **fuer-gruender.de/franchiseboerse** — selten brauchbar.
+
+**unternehmer-gesucht.com** ist eine FranchisePORTAL-Untermarke und zeigt dieselben Daten wie franchiseportal.de — kein separater Check nötig.
 
 ---
 
@@ -97,25 +101,87 @@ Argument ist `batch`: `/find-portal-contacts batch [limit]`
 
 ### Phase B: Portal-Seite besuchen & Kontakt extrahieren (Playwright)
 
-Für **jede** Portal-URL:
+**Zwei-Stufen-Ansatz**:
 
-1. `browser_navigate` → URL
-2. **Cookie-Banner** schließen falls nötig:
-   - `browser_click` auf "Alle akzeptieren" / "Accept all" / "Zustimmen"
-   - Fallback via `browser_evaluate`:
-     ```javascript
-     document.querySelectorAll('[class*="cookie"], [class*="consent"], [id*="cookie"], [id*="consent"]').forEach(el => el.remove())
-     ```
-3. `browser_snapshot` → Seiteninhalt analysieren.
-4. Suche nach Abschnitten mit Ansprechpartner-Info. Typische Labels:
-   - "Ansprechpartner", "Ihr Ansprechpartner", "Kontakt", "Ihr Kontakt"
-   - "Franchise-Manager", "Franchise-Leiter", "Expansionsleiter"
-   - "Geschäftsführer", "Inhaber"
-   - Personen-Kachel/Karten mit Foto + Name + Telefon + E-Mail
-5. Falls der Kontakt hinter einem Aufklapper/Tab versteckt ist:
-   - `browser_click` auf "Mehr anzeigen", "Kontakt anzeigen", "Ansprechpartner anzeigen"
-   - `browser_snapshot` erneut
-6. Falls Playwright blockiert wird (ERR_TUNNEL_CONNECTION_FAILED, 403, Cloudflare, Timeout, leerer Snapshot) → **Apify Website Content Crawler** (siehe Phase D).
+- **Stufe 1 (Standard, schnell)**: `browser_navigate` → `browser_evaluate` mit gezielter Regex. Das ist der Default, weil es wenig Kontext verbraucht und auf den hier beschriebenen Seitenmustern verlässlich funktioniert.
+- **Stufe 2 (Fallback)**: Wenn Stufe 1 **keinen Treffer** findet, **aber die Seite geladen wurde und nicht als "inaktiv" markiert ist**, ODER wenn Stufe 1 Daten liefert, die offensichtlich unsinnig wirken (z.B. Namen, die klar Sektions-Labels oder Firmennamen statt Personen sind, zerhackte Umlaute, Mehrfach-Whitespace-Müll, abgeschnittene Telefonnummern), dann `browser_snapshot` machen und die Seite normal visuell analysieren — so wie der Skill das vor der Regex-Optimierung gemacht hat. Der Snapshot zeigt Aufklapper, Tabs und Personen-Kacheln, die im reinen `innerText` manchmal nicht strukturiert ankommen.
+
+Cookie-Banner stören die Textsuche meist nicht — nur wegklicken wenn die Seite sonst leer bleibt.
+
+**Wann Stufe 2 eskalieren, wann nicht:**
+- "Sucht aktuell nicht nach neuen Gründer:innen" erkannt → **kein** Fallback, das System rekrutiert schlicht nicht.
+- 404 / "Profil nicht mehr aktiv" → **kein** Fallback, Seite existiert nicht.
+- Regex liefert `none` auf einer geladenen, aktiven Seite → **Fallback snapshot**.
+- Regex liefert einen Namen, der aber verdächtig aussieht (Firma, Label, offensichtlicher Parse-Fehler) → **Fallback snapshot zur Verifikation**.
+
+#### B1: franchiseverband.com (Priorität 1)
+
+1. `browser_navigate` → `https://www.franchiseverband.com/systeme-finden/franchisesystem-detail-ansicht/{slug}` (Slug aus WebSearch-Treffer, nicht raten).
+2. Wenn Page-Title `Fehler404` → Seite ist offline, überspringen.
+3. `browser_evaluate` mit dem Standard-Extractor:
+   ```javascript
+   () => {
+     const text = document.body.innerText;
+     const re = /ANSPRECHPARTNER/g;
+     let m, positions = [];
+     while ((m = re.exec(text)) !== null) positions.push(m.index);
+     if (positions.length === 0) return 'none';
+     // Letzter Treffer ist der echte Kontakt-Block (erster Treffer ist oft nur ein Abschnitts-Label im Fließtext)
+     const last = positions[positions.length - 1];
+     return text.substring(last, last + 800);
+   }
+   ```
+4. Der Block hat das Format (stabil über alle franchiseverband.com-Seiten):
+   ```
+   ANSPRECHPARTNER
+   Vollständiger Name
+   Telefon +49 ...
+   Mobile +49 ...          (optional)
+   email@domain.de
+   KONTAKT                 (Ende des Blocks)
+   ```
+5. Extrahiere **alle** Personen vor `KONTAKT` — manche Systeme haben 2 (z.B. Club Pilates, FITYES, PIRTEK).
+
+#### B2: franchiseportal.de (Priorität 2)
+
+1. `browser_navigate` → Portal-URL (Feld `Franchise-Portal URLs` im Record).
+2. `browser_evaluate`:
+   ```javascript
+   () => {
+     const text = document.body.innerText;
+     // Muster für Premium-Listings: "Guten Tag, mein Name ist {Vor- und Nachname} und ich vertrete {Firma}."
+     const m = text.match(/mein Name ist\s+([A-ZÄÖÜ][\wäöüß.\-]+(?:\s+[A-ZÄÖÜ][\wäöüß.\-]+)+)\s+und ich vertrete/);
+     if (m) return {name: m[1]};
+     // Fallback: "sucht (aktuell|über uns) nicht nach neuen" → kein aktiver Ansprechpartner
+     if (/sucht (über uns|aktuell).*nicht nach neuen/i.test(text)) return 'inactive';
+     return 'none';
+   }
+   ```
+3. Wenn Treffer: als Kontakt mit `telefon: null`, `email: null`, `portal: "franchiseportal.de"` eintragen. **Namen-Only ist Normalfall** bei diesem Portal — Kontaktaufnahme läuft über das portaleigene Lead-Formular.
+4. Bei `inactive` → Portal überspringen, aber weiter zu franchiseverband.com.
+
+#### B3: Andere Portale (FranchiseCHECK, franchisedirekt, franchiseERFOLGE, fuer-gruender)
+
+1. `browser_navigate` → URL.
+2. Wenn Title `404` / `Profil nicht mehr aktiv` → überspringen.
+3. `browser_evaluate` mit breiterem Muster:
+   ```javascript
+   () => {
+     const text = document.body.innerText;
+     for (const kw of ['Ansprechpartner', 'Franchise-Manager', 'Expansionsleit', 'Ihr Kontakt']) {
+       const idx = text.indexOf(kw);
+       if (idx >= 0) return text.substring(Math.max(0, idx-50), idx+500);
+     }
+     return 'none';
+   }
+   ```
+4. Wenn generische Labels wie "{Firma} Team" ohne Personenname → kein Eintrag, weiter.
+
+#### Generelle Regeln
+
+- Falls Playwright blockiert wird (`ERR_TUNNEL_CONNECTION_FAILED`, HTTP 403, Cloudflare-Challenge, leerer Snapshot) → **Apify Website Content Crawler** (siehe Phase D).
+- `browser_snapshot` ist der **Fallback** (Stufe 2), nicht der Standard — er produziert viel Kontext. Nutze ihn, wenn der Regex-Extractor nichts findet oder die Ergebnisse verdächtig aussehen (siehe Zwei-Stufen-Ansatz oben).
+- Namen sind oft mit Umlauten (ß, ä, ö, ü) — im JSON nicht escapen, `json.dumps(ensure_ascii=False, ...)` kümmert sich darum.
 
 **Was extrahieren:**
 - **Name**: Vollständiger Name inkl. Titel (Dr., Prof., Dipl. Ing. etc.)
